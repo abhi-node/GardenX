@@ -6,15 +6,15 @@
     </head>
     <body>
         <h1>GardenX - <small class='text-muted'> Making Gardening Fun</small></h1><br>
-        <button class="btn btn-primary" data-toggle='modal' data-target='loginPopup'>Login</button>
-        <button class="btn btn-primary" data-toggle="modal" data-target="registerPopup">Register</button>
+        <button class="btn btn-primary" data-toggle='modal' data-target='#loginPopup'>Login</button>
+        <button class="btn btn-primary" data-toggle="modal" data-target="#registerPopup">Register</button>
 
         <!--Login Popup-->>
         <div class='modal-fade' id='loginPopup' tabindex="-1" aria-labelledby="loginPopupLabel" aria-hidden="true">
             <div class='modal-dialog'>
                 <div class='modal-content'>
                         <div class='modal-header'>
-                            <h4 class='modal-title' id='loginPopup'>Login to GardenX</h4>
+                            <h4 class='modal-title' id='loginPopupLabel'>Login to GardenX</h4>
                             <button type='button' class='close' data-dismiss='modal' aria-label='closePopup'><span aria-hidden="true">&times;</span></button>
                         </div>
                         <div class='modal-body'>
@@ -30,12 +30,15 @@
                                 <button type="submit" class='btn btn-primary'>Login</button>
                             </form>
                         </div>
+                        <div class='modal-footer'>
+                            <button type=button class='btn btn-danger' data-dismiss="modal">Back</button>
+                        </div>
                 </div>
             </div>
         </div>
 
         <!--Register Popup-->>
-        <div class='modal-fade' id='registerPopup'>
+        <div class='modal-fade' id='registerPopup' tabindex="-1" aria-labelledby="loginPopupLabel" aria-hidden="true">
             <div class='modal-dialog'>
                 <div class='modal-content'>
                         <div class='modal-header'>
@@ -58,6 +61,9 @@
                                 </div>
                                 <button type="submit" class='btn btn-primary'>Register</button>
                             </form>
+                        </div>
+                        <div class='modal-footer'>
+                            <button type=button class='btn btn-danger' data-dismiss="modal">Back</button>
                         </div>
                 </div>
             </div>
