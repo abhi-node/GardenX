@@ -1,0 +1,19 @@
+{
+  "name": "gardenx",
+  "version": "1.0.0",
+  "description": "a garden app",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abhi-node/GardenX.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/abhi-node/GardenX/issues"
+  },
+  "homepage": "https://github.com/abhi-node/GardenX#readme"
+}
