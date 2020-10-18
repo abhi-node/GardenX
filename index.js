@@ -6,6 +6,10 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname + '/html/index.html'))
 })
 
+app.get('/ninja', (req, res) => {
+    res.send('you are a ninja')
+})
+
 app.listen(process.env.PORT || 3000, () => {
     console.log('Now listening on 3000')
 })
