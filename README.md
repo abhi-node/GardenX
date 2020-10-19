@@ -1,2 +1,2 @@
 # GardenX
-A gardening app
+### The app that will help revive your garden.
