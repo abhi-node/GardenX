@@ -2,8 +2,13 @@ const express = require('express')
 const path = require('path')
 const app = express()
 const bodyParser = require('body-parser')
+const mongoose = require('mongoose')
 const User = require('./models/user.js')
 var urlparser = bodyParser.urlencoded({ extended: false})
+
+mongoose.connect('mongodb://localhost/users')
+
+mongoose.Promise = global.Promise
 
 app.get('/root', (req, res) => {
     res.sendFile(path.join(__dirname + '/html/index.html'))
