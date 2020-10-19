@@ -14,6 +14,11 @@ app.get('/root', (req, res) => {
     res.sendFile(path.join(__dirname + '/html/index.html'))
 })
 
+app.get('/root/login', (req, res) => {
+    User.findOne({email: req.email, password: req.password})
+    res.sendFile(path.join(__dirname + '/html/home.html'))
+})
+
 app.post('/root/login', urlparser, (req, res) => {
     User.create(req.body)
     res.sendFile(path.join(__dirname + '/html/home.html'))
