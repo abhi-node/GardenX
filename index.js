@@ -1,23 +1,13 @@
-<<<<<<< HEAD
-const express = require('express');
-const path = require('path');
-var bodyParser  = require('body-parser');
-const app = express();
-
-
-app.use(bodyParser.json());
-var urlEncodedParser = bodyParser.urlencoded({extended: false});
-=======
 const express = require('express')
 const path = require('path')
 const app = express()
 const bodyParser = require('body-parser')
 const mongoose = require('mongoose')
 const User = require('./models/user.js')
+const { allowedNodeEnvironmentFlags } = require('process')
 var urlparser = bodyParser.urlencoded({ extended: false})
->>>>>>> 005fbc3ff962ff3a409412a91f6703cedc213018
 
-mongoose.connect('mongodb://localhost/users')
+mongoose.connect('mongodb://localhost/users', { useNewUrlParser: true, useUnifiedTopology: true});
 
 mongoose.Promise = global.Promise
 
@@ -25,20 +15,14 @@ app.get('/root', (req, res) => {
     res.sendFile(path.join(__dirname + '/html/index.html'))
 })
 
-app.get('/root/login', (req, res) => {
-    User.findOne({email: req.email, password: req.password})
-    res.sendFile(path.join(__dirname + '/html/home.html'))
-})
-
 app.post('/root/login', urlparser, (req, res) => {
-    User.create(req.body)
+    var email = req.body.email
+    var password = req.body.password
+    console.log(email, password)
+    //var userSearch = User.findOne({email: email, password: password}).exec()
+    //console.log(userSearch)
     res.sendFile(path.join(__dirname + '/html/home.html'))
-})
-
-app.post('/login', urlEncodedParser, (req, res) => {
-    res.sendFile(path.join(__dirname + '/html/onLogin.html'));
-    console.log(req.body.email);
-    console.log(req.body.password);
+    //res.sendFile(path.join(__dirname + '/html/home.html'))
 })
 
 app.listen(process.env.PORT || 3000, () => {
