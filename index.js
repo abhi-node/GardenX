@@ -15,7 +15,7 @@ mongoose.connect('mongodb://localhost/users', { useNewUrlParser: true, useUnifie
 mongoose.connection.once('open', function(){
     console.log("Connection made")
 }).on('error', function(error){
-    console.log("CONNECTIONERR: ", err)
+    console.log("CONNECTIONERR: ", error)
 })
 
 app.get('/root', (req, res) => {
