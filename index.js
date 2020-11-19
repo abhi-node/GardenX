@@ -1,11 +1,14 @@
 const express = require('express')
+const ejs = require('ejs')
 const path = require('path')
 const app = express()
 const bodyParser = require('body-parser')
 const mongoose = require('mongoose')
 const User = require('./models/user.js')
 //const { allowedNodeEnvironmentFlags } = require('process')
-var urlparser = bodyParser.urlencoded({ extended: false})
+var urlparser = bodyParser.urlencoded({ extended: false })
+
+app.set('view engine', 'ejs')
 
 mongoose.Promise = global.Promise
 mongoose.connect('mongodb://localhost/users', { useNewUrlParser: true, useUnifiedTopology: true})
@@ -19,7 +22,7 @@ mongoose.connection.once('open', function(){
 })
 
 app.get('/root', (req, res) => {
-    res.sendFile(path.join(__dirname + '/html/index.html'))
+    res.render('pages/index')
 })
 
 app.post('/root/login', urlparser, (req, res) => {
@@ -35,11 +38,12 @@ app.post('/root/login', urlparser, (req, res) => {
                 console.log('Person not found');
                 return;
             }
-            console.log("Welcome,", person.username);
+            global.username = person.username;
+            console.log("Welcome,", global.username);
+            res.render('pages/onLogin',{name:global.username})
         }
     });
     //console.log(userSearch)
-    res.sendFile(path.join(__dirname + '/html/onLogin.html'))
     //res.sendFile(path.join(__dirname + '/html/home.html'))
 })
 
@@ -52,9 +56,8 @@ app.post('/root/register', urlparser, (req, res) => {
     console.log('User created')
     //var userSearch = User.findOne({email: email, password: password}).exec()
     //console.log(userSearch)
-    res.sendFile(path.join(__dirname + '/html/onRegister.html'))
+    res.render('pages/onRegister')
 })
-
 
 app.listen(process.env.PORT || 3000, () => {
     console.log('Now listening on 3000')
