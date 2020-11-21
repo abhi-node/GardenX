@@ -7,6 +7,8 @@ const mongoose = require('mongoose')
 const User = require('./models/user.js')
 //const { allowedNodeEnvironmentFlags } = require('process')
 var urlparser = bodyParser.urlencoded({ extended: false })
+let userExists
+let emailExists
 
 app.set('view engine', 'ejs')
 
@@ -36,6 +38,7 @@ app.post('/root/login', urlparser, (req, res) => {
         }else{
             if(person == null){ //Person not found
                 console.log('Person not found');
+                res.render('pages/loginRedirect', {message:"Incorrect username/password"})
                 return;
             }
             global.username = person.username;
@@ -52,11 +55,35 @@ app.post('/root/register', urlparser, (req, res) => {
     var email = req.body.email
     var password = req.body.password
     console.log(username, email, password)
-    User.create({username:username,email:email,password:password})
-    console.log('User created')
-    //var userSearch = User.findOne({email: email, password: password}).exec()
-    //console.log(userSearch)
-    res.render('pages/onRegister')
+
+    userExists = false
+    emailExists = false
+
+    User.find({username: username}, function(err, docs) {
+        if(docs.length > 0){ //Is there a user
+            console.log(docs.length)
+            userExists = true
+        }
+    })
+
+    User.find({email: email}, function(err, docs) {
+        if(docs.length > 0){ //Is there an email
+            console.log(docs.length)
+            emailExists = true
+        }
+    })
+
+    console.log(emailExists, userExists)
+
+    if(global.userExists){
+        res.render('pages/registerRedirect', {message:"Username already exists, try entering another name."})
+    }else if(global.emailExists){
+        res.render('pages/registerRedirect', {message:"Email already exists, try entering another name."})
+    }else{
+        User.create({username:username,email:email,password:password})
+        console.log('User created')
+        res.render('pages/onRegister', {name: username})
+    }
 })
 
 app.listen(process.env.PORT || 3000, () => {
