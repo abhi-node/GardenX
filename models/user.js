@@ -5,7 +5,7 @@ const Schema = mongoose.Schema
 const UserSchema = new Schema({
     username: {
         type: String,
-        required: [true, 'username require']
+        required: [true, 'username required']
     },
     email: {
         type: String,
@@ -14,10 +14,16 @@ const UserSchema = new Schema({
     password: {
         type: String,
         require: [true, 'password required']
+    },
+    joinDate: {
+        type: Date,
+        required: [true, 'Join Date is required']
     }
+
+
     
 })
 
-const User = mongoose.model('user', UserSchema)
+const User = mongoose.model('user', UserSchema, 'user')
 
 module.exports = User
