@@ -128,7 +128,7 @@ app.post('/root/uploadPicture', urlparser, (req, res) => {
     //Save the image we got
     fileId = global.id + makeid(5) + imageExtension //Make a random ID for the image
     console.log(path.join(__dirname, '/images/') + fileId)
-    image.mv(path.join(__dirname, '/images/') + fileId,  (err) => {if(err)throw err});
+    image.mv('images/' + fileId,  (err) => {if(err)throw err});
     res.render('pages/takePicture', {message:'Picture saved!'})
 })
 
