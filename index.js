@@ -127,7 +127,7 @@ app.post('/root/uploadPicture', urlparser, (req, res) => {
     imageExtension = path.extname(image.name) //Get the extension of the image(only can be .png or .jpg)
     //Save the image we got
     fileId = global.id + makeid(5) + imageExtension //Make a random ID for the image
-    image.mv(path.join(__dirname, 'images') + '/' + fileId,  (err) => {if(err)throw err});
+    image.mv(path.join(__dirname, '/images/') + fileId,  (err) => {if(err)throw err});
     res.render('pages/takePicture', {message:'Picture saved!'})
 })
 
