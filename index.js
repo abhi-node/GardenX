@@ -30,6 +30,7 @@ var webcam = nodeWebcam.create(pictureOptions)
 
 app.set('view engine', 'ejs')
 
+if(process.env.MONGODB_URI){ mongoUrl = process.env.MONGODB_URI}
 mongoUrl = "mongodb+srv://hrishi:rgPrelhUhhO7RS8x@cluster0.dss66.mongodb.net/GardenX?retryWrites=true&w=majority" //MongoDB Atlas connection URL
 mongoose.connect(mongoUrl, {useNewUrlParser:true,useUnifiedTopology:true}); //Connect to MongoDB Atlas
 
