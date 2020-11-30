@@ -110,12 +110,12 @@ app.post('/root/register', urlparser, (req, res) => {
 )
 
 app.get('/root/uploadPicture', urlparser, (req, res) => {
-    res.render('pages/takePicture', {message:''})
+    res.render('pages/takePicture', {message:'', resultImage:''})
 })
 
 app.post('/root/uploadPicture', urlparser, (req, res) => {
     if(!req.files || Object.keys(req.files).length === 0){
-        res.render('pages/takePicture', {message:'No picture uploaded'})
+        res.render('pages/takePicture', {message:'No picture uploaded', resultImage:''})
         return
     }
 
