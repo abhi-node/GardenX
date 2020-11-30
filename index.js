@@ -7,7 +7,14 @@ const bodyParser = require('body-parser')
 const mongoose = require('mongoose')
 const User = require('./models/user.js')
 //const { MongoClient } = require('mongodb') Don't really need this library
-const nodeWebcam = require('node-webcam');
+const nodeWebcam = require('node-webcam'); //To-Do
+
+
+
+if(!process.env.CLOUDINARY_URL){ process.env.CLOUDINARY_URL = 'cloudinary://487694253654926:VXZoC5K95NmpMjZUteZEfsVOhog@gardenx'} //DELETE THIS AFTER WE DON'T NEED TO TEST LOCALLY
+var cloudinary = require('cloudinary').v2
+
+
 var urlparser = bodyParser.urlencoded({ extended: false })
 let userExists
 let emailExists
@@ -24,7 +31,7 @@ var pictureOptions = {
 };
 
 app.use('/images', express.static(path.join(__dirname, 'images'))) //First comment "shares" the images directory publicly, this lets us see the images later and can help us pass images to plant API
-app.use(fileUpload()) //Integrates file Upload library
+app.use(fileUpload({useTempFiles:true})) //Integrates file Upload library
 
 var webcam = nodeWebcam.create(pictureOptions)
 
@@ -34,15 +41,6 @@ if(process.env.MONGODB_URI){ mongoUrl = process.env.MONGODB_URI}
 mongoUrl = "mongodb+srv://hrishi:rgPrelhUhhO7RS8x@cluster0.dss66.mongodb.net/GardenX?retryWrites=true&w=majority" //MongoDB Atlas connection URL
 mongoose.connect(mongoUrl, {useNewUrlParser:true,useUnifiedTopology:true}); //Connect to MongoDB Atlas
 
-function makeid(length) { //Function to generate a random ID, this is used for the image
-    var result           = '';
-    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    var charactersLength = characters.length;
-    for ( var i = 0; i < length; i++ ) {
-       result += characters.charAt(Math.floor(Math.random() * charactersLength));
-    }
-    return result;
- }
 
 app.get('/root', (req, res) => {
     res.render('pages/index')
@@ -121,15 +119,20 @@ app.post('/root/uploadPicture', urlparser, (req, res) => {
         return
     }
 
+    if(!global.id){global.id = 'anonymous'}
+
     let image = req.files.image;
 
-
-    imageExtension = path.extname(image.name) //Get the extension of the image(only can be .png or .jpg)
-    //Save the image we got
-    fileId = global.id + makeid(5) + imageExtension //Make a random ID for the image
+    //Save image to the cloud(currently using cloudinary) as we can't use heroku for storage
+    userFolder = global.id + '/'//The folder for all the user's images
     console.log(path.join(__dirname, '/images/') + fileId)
-    image.mv('images/' + fileId,  (err) => {if(err)throw err});
-    res.render('pages/takePicture', {message:'Picture saved!'})
+    filePath = image.tempFilePath
+    cloudinary.uploader.upload(filePath, { folder: userFolder}, function(err, res){ 
+        console.log(err, res) //Result includes a public ID we can use
+        uploadedImage = cloudinary.image(res.public_id, { format:"jpg", crop:"fill"}) //Using cloudinary instead of the local image to make images more uniform
+        res.render('pages/takePicture', {message:'Picture saved!', resultImage: uploadedImage})
+
+    })
 })
 
 
