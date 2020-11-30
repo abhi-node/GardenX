@@ -115,17 +115,19 @@ app.get('/root/uploadPicture', urlparser, (req, res) => {
 
 app.post('/root/uploadPicture', urlparser, (req, res) => {
     if(!req.files || Object.keys(req.files).length === 0){
-        res.render('pages/takePicture', {message:'No picture uploaded', resultImage:''})
+        res.render('pages/takePicture', {message:'No picture uploaded', resultImage:''}) //Shouldn't be called due to required HTML input, but it's here in case
         return
     }
 
-    if(!global.id){global.id = 'anonymous'}
+    if(!global.id){
+        global.id = 'anonymous'
+        console.log("NOTE: User is not logged in, picture will be uploaded to an anonymous folder") 
+    }
 
     let image = req.files.image;
 
     //Save image to the cloud(currently using cloudinary) as we can't use heroku for storage
     userFolder = global.id + '/'//The folder for all the user's images
-    console.log(path.join(__dirname, '/images/') + fileId)
     filePath = image.tempFilePath
     cloudinary.uploader.upload(filePath, { folder: userFolder}, function(err, res){ 
         console.log(err, res) //Result includes a public ID we can use
