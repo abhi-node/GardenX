@@ -129,9 +129,9 @@ app.post('/root/uploadPicture', urlparser, (req, res) => {
     //Save image to the cloud(currently using cloudinary) as we can't use heroku for storage
     userFolder = global.id + '/'//The folder for all the user's images
     filePath = image.tempFilePath
-    cloudinary.uploader.upload(filePath, { folder: userFolder}, function(err, res){ 
-        console.log(err, res) //Result includes a public ID we can use
-        uploadedImage = cloudinary.image(res.public_id, { format:"jpg", crop:"fill"}) //Using cloudinary instead of the local image to make images more uniform
+    cloudinary.uploader.upload(filePath, { folder: userFolder}, function(err, result){ 
+        console.log(err, result) //Result includes a public ID we can use
+        uploadedImage = cloudinary.image(result.public_id, { format:"jpg", crop:"fill"}) //Using cloudinary instead of the local image to make images more uniform
         res.render('pages/takePicture', {message:'Picture saved!', resultImage: uploadedImage})
 
     })
