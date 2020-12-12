@@ -1,7 +1,7 @@
 const express = require('express')
 fileUpload = require('express-fileupload') //Allows us to upload files
 const ejs = require('ejs')
-const https = require('axios') //Library for sending get/post requests
+const https = require('axios').default //Library for sending get/post requests
 const path = require('path')
 const app = express()
 const bodyParser = require('body-parser')
@@ -9,6 +9,7 @@ const mongoose = require('mongoose')
 const User = require('./models/user.js')
 //const { MongoClient } = require('mongodb') Don't really need this library
 const nodeWebcam = require('node-webcam'); //To-Do
+const { default: Axios } = require('axios')
 
 
 
@@ -43,9 +44,24 @@ if(process.env.MONGODB_URI){ mongoUrl = process.env.MONGODB_URI}
 mongoUrl = "mongodb+srv://hrishi:rgPrelhUhhO7RS8x@cluster0.dss66.mongodb.net/GardenX?retryWrites=true&w=majority" //MongoDB Atlas connection URL
 mongoose.connect(mongoUrl, {useNewUrlParser:true,useUnifiedTopology:true}); //Connect to MongoDB Atlas
 
-function identifyPlant(url, plantType){
-    apiLink = 'https://my-api.plantnet.org/v2/identify/all?api-key=' + process.env.PLANT_API_KEY + '&images=' + encodeURI(url) //encodeURI turns stuff like :// into URL-readable format ex. %3A%2F%2F
+function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have any image recognition. This has 50 free requests per day.
+    apiLink = 'https://my-api.plantnet.org/v2/identify/all'
     //TODO: Send a GET request to apiLink and parse the result, more at https://my.plantnet.org/usage
+    console.log(url)
+    
+    https.get(apiLink, {
+        params:{
+            'api-key':process.env.PLANT_API_KEY,
+            'images': encodeURI(url), //encodeURI turns stuff like :// into URL-readable format ex. %3A%2F%2F
+            'organs':'leaf'
+        }
+        })
+        .then(function (response) {
+            console.log(response.data.results);
+        })
+        .catch(function (error) {
+        console.log(error);
+        });
 }
 
 
@@ -139,6 +155,8 @@ app.post('/root/uploadPicture', urlparser, (req, res) => {
     cloudinary.uploader.upload(filePath, { folder: userFolder}, function(err, result){ 
         console.log(err, result) //Result includes a public ID we can use
         uploadedImage = cloudinary.image(result.public_id, { format:"jpg", crop:"fill", width:200, height:400}) //Using cloudinary instead of the local image to make images more uniform
+        uploadedImageUrl = result.secure_url
+        identifyPlant(uploadedImageUrl)
         res.render('pages/takePicture', {message:'Picture saved!', resultImage: uploadedImage})
 
     })
