@@ -1,6 +1,7 @@
 const express = require('express')
 fileUpload = require('express-fileupload') //Allows us to upload files
 const ejs = require('ejs')
+const https = require('axios') //Library for sending get/post requests
 const path = require('path')
 const app = express()
 const bodyParser = require('body-parser')
@@ -12,6 +13,7 @@ const nodeWebcam = require('node-webcam'); //To-Do
 
 
 if(!process.env.CLOUDINARY_URL){ process.env.CLOUDINARY_URL = 'cloudinary://487694253654926:VXZoC5K95NmpMjZUteZEfsVOhog@gardenx'} //DELETE THIS AFTER WE DON'T NEED TO TEST LOCALLY
+if(!process.env.PLANT_API_KEY){ process.env.PLANT_API_KEY = '2a10x2BPqelys3D5QttaEmNwO'} //DELETE THIS TOO
 var cloudinary = require('cloudinary').v2
 
 
@@ -41,8 +43,13 @@ if(process.env.MONGODB_URI){ mongoUrl = process.env.MONGODB_URI}
 mongoUrl = "mongodb+srv://hrishi:rgPrelhUhhO7RS8x@cluster0.dss66.mongodb.net/GardenX?retryWrites=true&w=majority" //MongoDB Atlas connection URL
 mongoose.connect(mongoUrl, {useNewUrlParser:true,useUnifiedTopology:true}); //Connect to MongoDB Atlas
 
+function identifyPlant(url, plantType){
+    apiLink = 'https://my-api.plantnet.org/v2/identify/all?api-key=' + process.env.PLANT_API_KEY + '&images=' + encodeURI(url) //encodeURI turns stuff like :// into URL-readable format ex. %3A%2F%2F
+    //TODO: Send a GET request to apiLink and parse the result, more at https://my.plantnet.org/usage
+}
 
-app.get('/root', (req, res) => {
+
+app.get('/root', (req, res) => { //Main page
     res.render('pages/index')
 })
 
@@ -127,11 +134,11 @@ app.post('/root/uploadPicture', urlparser, (req, res) => {
     let image = req.files.image;
 
     //Save image to the cloud(currently using cloudinary) as we can't use heroku for storage
-    userFolder = global.id + '/'//The folder for all the user's images
+    userFolder = 'images/' + global.id + '/'//The folder for all the user's images
     filePath = image.tempFilePath
     cloudinary.uploader.upload(filePath, { folder: userFolder}, function(err, result){ 
         console.log(err, result) //Result includes a public ID we can use
-        uploadedImage = cloudinary.image(result.public_id, { format:"jpg", crop:"fill"}) //Using cloudinary instead of the local image to make images more uniform
+        uploadedImage = cloudinary.image(result.public_id, { format:"jpg", crop:"fill", width:200, height:400}) //Using cloudinary instead of the local image to make images more uniform
         res.render('pages/takePicture', {message:'Picture saved!', resultImage: uploadedImage})
 
     })
