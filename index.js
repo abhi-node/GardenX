@@ -16,6 +16,7 @@ const { default: Axios } = require('axios')
 if(!process.env.CLOUDINARY_URL){ process.env.CLOUDINARY_URL = 'cloudinary://487694253654926:VXZoC5K95NmpMjZUteZEfsVOhog@gardenx'} //DELETE THIS AFTER WE DON'T NEED TO TEST LOCALLY
 if(!process.env.PLANT_API_KEY){ process.env.PLANT_API_KEY = '2a10x2BPqelys3D5QttaEmNwO'} //DELETE THIS TOO
 var cloudinary = require('cloudinary').v2
+const { prependListener } = require('./models/user.js')
 
 
 var urlparser = bodyParser.urlencoded({ extended: false })
@@ -49,7 +50,7 @@ function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have an
     //TODO: Send a GET request to apiLink and parse the result, more at https://my.plantnet.org/usage
     console.log(url)
     
-    https.get(apiLink, {
+    return https.get(apiLink, {
         params:{
             'api-key':process.env.PLANT_API_KEY,
             'images': encodeURI(url), //encodeURI turns stuff like :// into URL-readable format ex. %3A%2F%2F
@@ -57,7 +58,20 @@ function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have an
         }
         })
         .then(function (response) {
-            console.log(response.data.results);
+            plantSpecies = response.data.results;
+            mostLikelySpecies = plantSpecies[0]; //For now, only looking at most likely guessed by AI but this could change later
+            accuracy = Math.floor(parseFloat(mostLikelySpecies['score']) * 100) //Makes this a number then rounds
+            plantData = mostLikelySpecies['species']
+            scientificName = plantData['scientificNameWithoutAuthor']
+            author = plantData['scientificNameAuthorship']
+            genus = plantData['genus']['scientificNameWithoutAuthor'] //Genus and family also have author data, but we don't necessarily want that here.
+            family = plantData['family']['scientificNameWithoutAuthor']
+            commonNames = plantData['commonNames']
+            console.log(mostLikelySpecies['score'])
+            commonNamesJoined = commonNames.join(', ') //commonNames is an array, so we want to convert into a string
+            plantArgs = {message:'Your plant has been processed!', resultImage: uploadedImage, plantName: scientificName, commonName:commonNamesJoined, author:author, genus:genus, family:family, accuracy:accuracy} //We render in the original function
+            return plantArgs
+
         })
         .catch(function (error) {
         console.log(error);
@@ -154,10 +168,14 @@ app.post('/root/uploadPicture', urlparser, (req, res) => {
     filePath = image.tempFilePath
     cloudinary.uploader.upload(filePath, { folder: userFolder}, function(err, result){ 
         console.log(err, result) //Result includes a public ID we can use
-        uploadedImage = cloudinary.image(result.public_id, { format:"jpg", crop:"fill", width:200, height:400}) //Using cloudinary instead of the local image to make images more uniform
+        uploadedImage = cloudinary.image(result.public_id, { format:"jpg", crop:"fill"}) //Using cloudinary instead of the local image to make images more uniform
         uploadedImageUrl = result.secure_url
-        identifyPlant(uploadedImageUrl)
-        res.render('pages/takePicture', {message:'Picture saved!', resultImage: uploadedImage})
+        let plantInfo = identifyPlant(uploadedImageUrl)
+        
+        plantInfo.then(function(info){
+            console.log(info)
+            res.render('pages/plantResult', info)
+        })
 
     })
 })
