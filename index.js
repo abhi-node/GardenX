@@ -284,13 +284,22 @@ app.get('/root/posts/*', function(req, res){
                         </div>
                     </div>
                     `
+                    linkMeta = `
+                    <meta property="og:title" content="GardenX" />
+                    <meta property="og:type" content="website" />
+                    <meta property="og:url" content="https://gardenx.herokuapp.com" />
+                    <meta property="og:image" content="${image.url}" />
+                    <meta property="og:description" content="Find the ${image.plantName} and more plants on GardenX." />
+                    <meta name="theme-color" content="#FF0000">
+                    `
+
                     User.findById(image.user, function(err, user){
                         if(err){
                             console.error(err)
                             return
                         }
                         if(user.imagePublic){
-                            res.render('pages/public/post', {username: user.username, plantName:image.plantName,card:imageCard})
+                            res.render('pages/public/post', {username: user.username, plantName:image.plantName,card:imageCard, linkPreview:linkMeta})
                         }else{
                             res.render('pages/public/404')
                         }
