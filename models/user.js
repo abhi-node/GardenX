@@ -18,6 +18,10 @@ const UserSchema = new Schema({
     joinDate: {
         type: Date,
         required: [true, 'Join Date is required']
+    },
+    imagePublic: {
+        type: Boolean,
+        default: true
     }
 
 
