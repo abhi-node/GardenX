@@ -31,7 +31,7 @@
             //Webcam stream
             async function createStream(event){
                 try{
-                    stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{facing:{exact:"environment"}}})
+                    stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{exact:"environment"}}})
                     event.target.disabled = true;
                     enableVideoPreview(stream);
                 }catch(err){
