@@ -7,9 +7,30 @@
     </head>
     <body>
         <h1><%= message %></h1>
+        <video autoplay>Camera stream unavaliable</video>
         <form action="/root/uploadPicture" enctype="multipart/form-data" method="POST">
-            <input type="file" name='image' accept="image/*;capture=camera" accept='.png,.jpg' required='true'>
-            <button type="submit">Submit</button>
+            <input type="file" name='image' accept="image/*" capture="camera">
+            <button type="submit">Take a picture</button>
         </form>
+
+
+        <script type="text/javascript">
+            //Webcam stream
+            navigator.mediaDevices.getUserMedia({video:true,audio:false})
+                .then(function(stream){
+                    var video = document.querySelector('video');
+                    if("srcObject" in video){ //Browser compatibility check
+                        video.srcObject = stream;
+                    }else{ //Use older method
+                        video.src = window.URL.createObjectURL(stream)
+                    }
+                })
+                .catch(function(err){
+                    console.error("Error with video stream, ", err)
+                })
+
+            //Take picture from webcam
+
+        </script>
     </body>
 </html>
