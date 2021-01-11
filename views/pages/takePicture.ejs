@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
     <head>
         <title>Upload a Picture</title>
@@ -7,7 +8,7 @@
     </head>
     <body>
         <h1><%= message %></h1>
-        <video autoplay muted playsinline>Camera stream unavaliable</video>
+        <video autoplay="true" id="cameraStream" muted playsinline>Camera stream unavaliable</video>
         <form action="/root/uploadPicture" enctype="multipart/form-data" method="POST">
             <input type="file" name='image' accept="image/*" capture="camera">
             <button type="submit">Take a picture</button>
@@ -15,22 +16,21 @@
 
 
         <script type="text/javascript">
+            var video = document.querySelector('#cameraStream');
             //Webcam stream
-            navigator.mediaDevices.getUserMedia({video:true,audio:false})
-                .then(function(stream){
-                    var video = document.querySelector('video');
-                    if("srcObject" in video){ //Browser compatibility check
-                        video.srcObject = stream;
-                    }else{ //Use older method
-                        video.src = window.URL.createObjectURL(stream)
-                    }
-                })
-                .catch(function(err){
-                    console.error("Error with video stream, ", err)
-                })
-
-            //Take picture from webcam
-
+            if(navigator.mediaDevices.getUserMedia){
+                navigator.mediaDevices.getUserMedia({video:true})
+                    .then(function(stream){
+                        if("srcObject" in video){ //Browser compatibility check
+                            video.srcObject = stream;
+                        }else{ //Use older method
+                            video.src = window.URL.createObjectURL(stream)
+                        }
+                    })
+                    .catch(function(err){
+                        console.error("Error with video stream, ", err)
+                    })
+            }
         </script>
     </body>
 </html>
