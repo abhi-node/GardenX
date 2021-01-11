@@ -8,7 +8,7 @@
     </head>
     <body>
         <h1><%= message %></h1>
-        <video autoplay="true" id="cameraStream" muted playsinline>Camera stream unavaliable</video>
+        <video id="cameraStream" autoplay muted playsinline>Camera stream unavaliable</video>
         <form action="/root/uploadPicture" enctype="multipart/form-data" method="POST">
             <input type="file" name='image' accept="image/*" capture="camera">
             <button type="submit">Take a picture</button>
@@ -16,10 +16,13 @@
 
 
         <script type="text/javascript">
+            let windowWidth=window.innerWidth;
+            let windowHeight=window.innerHeight;
             var video = document.querySelector('#cameraStream');
             //Webcam stream
             if(navigator.mediaDevices.getUserMedia){
-                navigator.mediaDevices.getUserMedia({video:true})
+                navigator.mediaDevices.getUserMedia({audio:false,
+                video:{facingMode:'environment', width:mobile ? undefined : windowWidth, height:mobile ? undefined : windowHeight}})
                     .then(function(stream){
                         if("srcObject" in video){ //Browser compatibility check
                             video.srcObject = stream;
