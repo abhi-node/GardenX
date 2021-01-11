@@ -7,7 +7,7 @@
     </head>
     <body>
         <h1><%= message %></h1>
-        <video autoplay>Camera stream unavaliable</video>
+        <video autoplay muted playsinline>Camera stream unavaliable</video>
         <form action="/root/uploadPicture" enctype="multipart/form-data" method="POST">
             <input type="file" name='image' accept="image/*" capture="camera">
             <button type="submit">Take a picture</button>
