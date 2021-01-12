@@ -8,9 +8,6 @@ const bodyParser = require('body-parser')
 const mongoose = require('mongoose')
 const User = require('./models/user.js')
 const Image = require('./models/image.js')
-//const { MongoClient } = require('mongodb') Don't really need this library
-const nodeWebcam = require('node-webcam'); //To-Do
-//const { default: Axios } = require('axios')
 
 
 
@@ -38,17 +35,12 @@ var pictureOptions = {
 app.use('/images', express.static(path.join(__dirname, 'images'))) //First comment "shares" the images directory publicly, this lets us see the images later and can help us pass images to plant API
 app.use(fileUpload({useTempFiles:true})) //Integrates file Upload library
 
-var webcam = nodeWebcam.create(pictureOptions)
-
 app.set('view engine', 'ejs')
 
 if(process.env.MONGODB_URI){ mongoUrl = process.env.MONGODB_URI}
 mongoUrl = "mongodb+srv://hrishi:rgPrelhUhhO7RS8x@cluster0.dss66.mongodb.net/GardenX?retryWrites=true&w=majority" //MongoDB Atlas connection URL
 mongoose.connect(mongoUrl, {useNewUrlParser:true,useUnifiedTopology:true, useFindAndModify:false}); //Connect to MongoDB Atlas
 
-function idToUsername(id){
-    return User.findById(id).then(function(err, response){return response.username})
-}
 
 function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have any image recognition. This has 50 free requests per day.
     apiLink = 'https://my-api.plantnet.org/v2/identify/all'
@@ -100,6 +92,12 @@ function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have an
         console.log(error);
         });
 }
+
+httpServer = express() //Host a http server and redirect http to https
+httpServer.get("*", function(req, res){
+    res.redirect('https://' + req.headers.host + req.url)
+})
+httpServer.listen(8080)
 
 
 app.get('/root', (req, res) => { //Main page
