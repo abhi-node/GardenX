@@ -92,9 +92,6 @@ function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have an
         });
 }
 
-httpServer.listen(process.env.PORT || 8080, () => {
-    console.log('Now listening on 8080')})
-
 
 app.get('/root', (req, res) => { //Main page
     res.render('pages/index')
