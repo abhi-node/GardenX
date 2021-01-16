@@ -50,9 +50,13 @@
                 devices = await navigator.mediaDevices.enumerateDevices() 
                 console.log(devices)
                 camId = getRearCamera(devices)
+                constraints = camId
+                if(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)){//If on mobile, change constraints
+                    constraints = {facingMode: {exact: "environment"}}
+                }
 
                 try{
-                    stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{deviceId:{exact: camId}}})
+                    stream = await navigator.mediaDevices.getUserMedia({audio:false, video:constraints})
                     event.target.disabled = true;
                     enableVideoPreview(stream);
                 }catch(err){
