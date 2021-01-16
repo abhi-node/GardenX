@@ -32,7 +32,7 @@
                 listOfCameras = []
                 devices.forEach(function(device){
                     if(device.kind === "videoinput"){
-                        listOfCameras.push(device.id)
+                        listOfCameras.push(device.deviceId)
                     }
                 })
                 if(listOfCameras.length == 1){
