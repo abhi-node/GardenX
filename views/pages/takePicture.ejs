@@ -28,24 +28,36 @@
                 videoObj.srcObject = stream;
             }
 
+            function getRearCamera(devices){
+                listOfCameras = []
+                devices.forEach(function(device){
+                    if(device.kind === "videoinput"){
+                        listOfCameras.push(device.id)
+                    }
+                })
+                if(listOfCameras.length == 1){
+                    return listOfCameras[0] //Only 1 camera, return that
+                }else{
+                    return listOfCameras[1] //There's a rear camera, return that
+                }
+            }
+
             //Webcam stream
             async function createStream(event){
-                navigator.mediaDevices.enumerateDevices()
-                    .then(function(devices) {
-    devices.forEach(function(device) {
-        console.log(device.kind + ": " + device.label +
-                    " id = " + device.deviceId);
-    })})
+                
+                devices = await navigator.mediaDevices.enumerateDevices() 
+                console.log(devices)
+                camId = getRearCamera(devices)
 
                 try{
-                    stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{exact:"environment"}}})
+                    stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{deviceId:{exact: camId}}})
                     event.target.disabled = true;
                     enableVideoPreview(stream);
                 }catch(err){
                     alert("Error with video stream, "+ err)
                 }
             }
-            alert('test')
+            //alert('test')
             document.querySelector("#cameraStreamToggle").addEventListener('click', event => createStream(event))
         </script>
     </body>
