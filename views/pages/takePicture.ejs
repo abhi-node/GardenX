@@ -11,7 +11,7 @@
         <video id="cameraStream" autoplay muted playsinline>Camera stream unavaliable</video>
         <button id="cameraStreamToggle">Show camera stream</button>
         <form action="/root/uploadPicture" enctype="multipart/form-data" method="POST">
-            <input type="file" name='image' accept="image/*" capture="camera">
+            <input type="file" name='image' accept="image/*" capture="camera" required="true">
             <button type="submit">Take a picture</button>
         </form>
 
