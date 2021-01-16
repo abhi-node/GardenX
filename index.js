@@ -18,7 +18,6 @@ var cloudinary = require('cloudinary').v2
 
 
 var urlparser = bodyParser.urlencoded({ extended: false })
-let userExists
 let emailExists
 
 var pictureOptions = {
@@ -93,18 +92,12 @@ function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have an
         });
 }
 
-httpServer = express() //Host a http server and redirect http to https
-httpServer.get("*", function(req, res){
-    res.redirect('https://' + req.headers.host + req.url)
-})
-httpServer.listen(8080)
+httpServer.listen(process.env.PORT || 8080, () => {
+    console.log('Now listening on 8080')})
 
 
 app.get('/root', (req, res) => { //Main page
-    if(global.id == null){res.render('pages/index')
-    }else{
-        res.render('pages/onLogin', {name:global.username, joined:global.dateJoined})
-    }
+    res.render('pages/index')
 })
 
 app.post('/root/login', urlparser, (req, res) => { //Login function
