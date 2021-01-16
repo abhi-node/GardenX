@@ -30,6 +30,13 @@
 
             //Webcam stream
             async function createStream(event){
+                navigator.mediaDevices.enumerateDevices()
+                    .then(function(devices) {
+    devices.forEach(function(device) {
+        console.log(device.kind + ": " + device.label +
+                    " id = " + device.deviceId);
+    })})
+
                 try{
                     stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{exact:"environment"}}})
                     event.target.disabled = true;
