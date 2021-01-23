@@ -23,7 +23,7 @@ var cloudinary = require('cloudinary').v2
 var urlparser = bodyParser.urlencoded({ extended: false })
 app.use(cookieParser(process.env.COOKIE_SIGNED_SECRET))
 
-app.use('/images', express.static(path.join(__dirname, 'images'))) //First comment "shares" the images directory publicly, this lets us see the images later and can help us pass images to plant API
+app.use('/static', express.static(path.join(__dirname, 'views/static'))) //First comment "shares" the images directory publicly, this lets us see the images later and can help us pass images to plant API
 app.use(fileUpload({useTempFiles:true})) //Integrates file Upload library
 
 app.set('view engine', 'ejs')
@@ -47,7 +47,7 @@ function authToken(req, res, next){
     if(token === undefined||token==null){ return res.render('pages/index.ejs')}
 
     jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, (err, user)=>{
-        if(err){return res.render('pages/loginRedirect.ejs', {message:"Please log in."})}
+        if(err){return res.render('pages/login.ejs', {message:"Please log in."})}
         req.user = user
         next()
     })
@@ -113,7 +113,14 @@ app.get('/root', authToken, (req, res) => { //Main page
     res.render('pages/onLogin', {name:req.user.name})
 })
 
-app.post('/root/login', urlparser, (req, res) => { //Login function
+app.get('/root/login', urlparser, (req, res)=>{
+    res.render('pages/login')
+})
+app.get('/root/register', urlparser, (req, res)=>{
+    res.render('pages/register')
+})
+
+app.post('/login', urlparser, (req, res) => { //Login function
     var email = req.body.email
     var password = req.body.password
     try{

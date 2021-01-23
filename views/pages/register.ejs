@@ -35,7 +35,11 @@
                 </div>
             </div>
         </nav>
-        <form action="root/register" method="post" class="was-validated">
+        
+        <form action="/root/register" method="post" class="was-validated">
+            <%if(locals.message){%>
+                <p class='text-danger'><%= message %></p>
+            <%}%>
             <div class="form-group">
                 <label for="registerName" onkeypress="return /[a-zA-Z0-9-]+/i.test(event.key)">Username</label>
                 <input name="username" type="username" id="registerUsername" required>
