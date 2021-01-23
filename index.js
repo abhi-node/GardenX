@@ -216,12 +216,7 @@ app.get('/root/myGarden', authToken, urlparser, async function(req, res){
     images = await Image.find({user:req.user.name})
     imagesString = ``
     lowAccuracyPrompt = "If this number is low, please try taking the picture in different lighting, adjusting the angle of the picture so the plant is clearly visible, or making sure the plant is detailed and clearly visible."
-    images.forEach(async function(image){
-        likeButton = ``
-        likeResult = await isImageLiked(image, req.user.name)
-        if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?post=${postId}" title="Liked"><button class="btn btn-danger">${pluralize(image.likes.length, "like")}</button></a>`
-        else if(likeResult==="user") likeButton = `<button class="btn btn-success disabled">${pluralize(image.likes.length, "like")}</button>`
-        else likeButton = `<a href="/root/like/${image._id}?post=${postId}"><button class="btn btn-secondary">${pluralize(image.likes.length, "like")}</button></a>`
+    images.forEach(function(image){
 
         imageCard = `<div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
             <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
@@ -230,17 +225,16 @@ app.get('/root/myGarden', authToken, urlparser, async function(req, res){
                 <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
                 <p class="card-text">Named by ${image.foundBy}</h2>
                 <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
-                ${likeButton}
                 <span tabindex="0" data-toggle="tooltip" data-placement="bottom" title="${lowAccuracyPrompt}">
                     <p class='text-muted'>${image.accuracy}% accurate.</p>
                 </span>
+                <button class="btn btn-success disabled">${pluralize(image.likes.length, "like")}</button>
             </div>
         </div>
         `
 
         imagesString += imageCard
     })
-    console.log(imagesString)
     res.render('pages/myGarden', {images:imagesString})
 })
 
