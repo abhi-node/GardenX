@@ -38,6 +38,10 @@ const ImageSchema = new Schema({
     public: { //Is image publicly avaliable?
         type: Boolean,
         default: true
+    },
+    likes:{
+        type:[String],
+        default: []
     }
 
 

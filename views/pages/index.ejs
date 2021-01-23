@@ -52,7 +52,7 @@
                         <div class="modal-body">
                             <form action="/root/register" method="post">
                                 <div class="form-group">
-                                    <label for="registerName">Username</label>
+                                    <label for="registerName" onkeypress="return /[a-zA-Z0-9-]+/i.test(event.key)">Username</label>
                                     <input name="username" type="name" class="form-control" id="registerName">
                                 </div>
                                 <div class="form-group">

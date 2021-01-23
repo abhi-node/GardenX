@@ -1,3 +1,5 @@
+require('dotenv').config()
+
 const express = require('express')
 fileUpload = require('express-fileupload') //Allows us to upload files
 const ejs = require('ejs')
@@ -6,42 +8,52 @@ const path = require('path')
 const app = express()
 const bodyParser = require('body-parser')
 const mongoose = require('mongoose')
+
+const jwt = require('jsonwebtoken')
+const bcrypt = require('bcrypt')
+const cookieParser = require('cookie-parser')
+
 const User = require('./models/user.js')
 const Image = require('./models/image.js')
 
 
-
-if(!process.env.CLOUDINARY_URL){ process.env.CLOUDINARY_URL = 'cloudinary://487694253654926:VXZoC5K95NmpMjZUteZEfsVOhog@gardenx'} //DELETE THIS AFTER WE DON'T NEED TO TEST LOCALLY
-if(!process.env.PLANT_API_KEY){ process.env.PLANT_API_KEY = '2a10x2BPqelys3D5QttaEmNwO'} //DELETE THIS TOO
 var cloudinary = require('cloudinary').v2
-//const { prependListener } = require('./models/user.js')
 
 
 var urlparser = bodyParser.urlencoded({ extended: false })
-let emailExists
-
-var pictureOptions = {
-    width: 1280,
-    height: 720, 
-    quality: 100,
-    delay: 1,
-    saveShots: true,
-    output: "jpeg",
-    device: false,
-    callbackReturn: "location"
-};
+app.use(cookieParser(process.env.COOKIE_SIGNED_SECRET))
 
 app.use('/images', express.static(path.join(__dirname, 'images'))) //First comment "shares" the images directory publicly, this lets us see the images later and can help us pass images to plant API
 app.use(fileUpload({useTempFiles:true})) //Integrates file Upload library
 
 app.set('view engine', 'ejs')
+mongoose.connect(process.env.MONGO_URL, {useNewUrlParser:true,useUnifiedTopology:true, useFindAndModify:false,useCreateIndex:true}); //Connect to MongoDB Atlas
 
-if(process.env.MONGODB_URI){ mongoUrl = process.env.MONGODB_URI}
-mongoUrl = "mongodb+srv://hrishi:rgPrelhUhhO7RS8x@cluster0.dss66.mongodb.net/GardenX?retryWrites=true&w=majority" //MongoDB Atlas connection URL
-mongoose.connect(mongoUrl, {useNewUrlParser:true,useUnifiedTopology:true, useFindAndModify:false}); //Connect to MongoDB Atlas
+const pluralize = (num, word) =>{
+    if(num === 1){return `${num.toString()} ${word}`}
+    else if(num === 0){return `No ${word}s`}
+    else{return `${num.toString()} ${word}s`}
+}
 
+async function isImageLiked(image, username){
+    likes = image.likes
+    if(image.user === username){ return "user"}
+    else if(likes.includes(username)){ return true}
+    else{return false}
+}
 
-function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have any image recognition. This has 50 free requests per day.
+function authToken(req, res, next){
+    const token = req.signedCookies.jwt
+    if(token === undefined||token==null){ return res.render('pages/index.ejs')}
+
+    jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, (err, user)=>{
+        if(err){return res.render('pages/loginRedirect.ejs', {message:"Please log in."})}
+        req.user = user
+        next()
+    })
+}
+
+function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't have any image recognition. This has 50 free requests per day.
     apiLink = 'https://my-api.plantnet.org/v2/identify/all'
     //TODO: Send a GET request to apiLink and parse the result, more at https://my.plantnet.org/usage
     console.log(url)
@@ -76,7 +88,7 @@ function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have an
                         genus: genus,
                         family: family,
                         accuracy: accuracy,
-                        user: global.id,
+                        user: id,
                         url:url})
                 .then(function(response){
                     console.log("Image Created")
@@ -92,106 +104,84 @@ function identifyPlant(url){ //Using Pl@ntnet for the API, trefle didn't have an
         });
 }
 
+app.get('/root/logout', (req, res)=>{
+    res.clearCookie('jwt')
+    res.redirect('/root')
+})
 
-app.get('/root', (req, res) => { //Main page
-    res.render('pages/index')
+app.get('/root', authToken, (req, res) => { //Main page
+    res.render('pages/onLogin', {name:req.user.name})
 })
 
 app.post('/root/login', urlparser, (req, res) => { //Login function
     var email = req.body.email
     var password = req.body.password
-    console.log(email, password)
     try{
-        User.findOne({email: email, password: password}, function(err, person){ 
+        User.findOne({email: email}, function(err, person){ 
         //User.findOneAndRemove({email: email, password: password}, function(err, person){
             if(err){
                 console.log("ERROR: ", err);
                 return;
             }else{
                 if(person == null){ //Person not found
-                    console.log('Person not found');
-                    res.render('pages/loginRedirect', {message:"Incorrect username/password"})
+                    res.render('pages/loginRedirect', {message:"Incorrect email"})
                     return
                 }
-                global.username = person.username;
-                global.id = person._id.toString()
-                console.log(id)
-                global.dateJoined = person.joinDate
-                console.log("Welcome,", global.username);
-                global.imagePublic = person.imagePublic;
-                res.render('pages/onLogin',{name:global.username, joined:global.dateJoined}) //Logged in, now we show the login page
-            }
-        });
+                bcrypt.compare(req.body.password, person.password, function(err, result){
+                    if(result == true){
+                        //Correct credentials, log in
+                        const accessToken = jwt.sign({name:person.username, id:person.id}, process.env.SECRET_ACCESS_TOKEN)
+                        res.cookie('jwt',accessToken, {maxAge: 3600000,signed:true,httpOnly:true})
+                        res.redirect('/root') //Logged in, now we show the login page
+                    }else{
+                        res.render('pages/loginRedirect', {message:"Incorrect password"})
+                    }
+                })
+            }})
     } catch {
         //Account not found, incorrect email/password most likely
-        res.render('pages/onLogin',{message:"Incorrect password"})
+        res.render('pages/onLogin',{message:"Incorrect email/password"})
     }
 })
 
-app.post('/root/register', urlparser, (req, res) => {
-    var username = req.body.username
-    var email = req.body.email
-    var password = req.body.password
-    console.log(username, email, password)
-
-
-    //Note: these two checks currently do nothing
-    User.find({username: username}, function(err, docs) {
-        if(docs.length > 0){ //Is there a user
-            console.log(docs.length)
-        }
-    })
-
-    User.find({email: email}, function(err, docs) {
-        if(docs.length > 0){ //Is there an email
-            console.log(docs.length)
-        }
-    })
-
-    console.log(emailExists, userExists)
-
-    //if(userExists){ NOTE: Add duplication check later
-    //    res.render('pages/registerRedirect', {message:"Username already exists, try entering another name."})
-    //}else if(emailExists){
-    //    res.render('pages/registerRedirect', {message:"Email already exists, try entering another name."})
-    //}else{
-    User.create({username:username,email:email,password:password,joinDate:(new Date()).toLocaleDateString()}) //Create a new user, the date is just an example of other attributes that can be added
-        .then(function(res){
-            console.log('User created')
-        })
-        .catch(function(err){
-            console.error(err)
-        })
+app.post('/root/register', urlparser, async (req, res) => {
+    hashedSaltedPass = await bcrypt.hash(req.body.password, 15)
+    username = req.body.username
+    email = req.body.email
+    try{
+        newUser = await User.create({username:username,email:email,password:hashedSaltedPass,joinDate:(new Date()).toLocaleDateString()}) //Create a new user, the date is just an example of other attributes that can be added
+        
+        const accessToken = jwt.sign({name:username,id:newUser.id}, process.env.SECRET_ACCESS_TOKEN)
+        res.clearCookie('jwt')
+        res.cookie('jwt',accessToken, {maxAge: 3600000,signed:true,httpOnly:true})
+    }catch(err){
+        if(err.errors.username && err.errors.username.kind == "unique"){ return res.render('pages/registerRedirect.ejs', {message: "Username already taken. Please choose a different one."})}
+        if(err.errors.email && err.errors.email.kind == "unique"){ return res.render('pages/registerRedirect.ejs', {message: "Email already taken. Please choose a different one."})}
+    }
     res.redirect('/root')
-    global.imagePublic = true
     }
 )
 
-app.get('/root/uploadPicture', urlparser, (req, res) => {
+app.get('/root/uploadPicture', authToken, urlparser, (req, res) => {
     res.render('pages/takePicture', {message:''})
 })
 
-app.post('/root/uploadPicture', urlparser, (req, res) => {
+app.post('/root/uploadPicture', authToken, urlparser, (req, res) => {
     if(!req.files || Object.keys(req.files).length === 0){
         res.render('pages/takePicture', {message:'No picture uploaded', resultImage:''}) //Shouldn't be called due to required HTML input, but it's here in case
         return
     }
 
-    if(!global.id){
-        global.id = 'anonymous'
-        console.log("NOTE: User is not logged in, picture will be uploaded to an anonymous folder") 
-    }
-
     let image = req.files.image;
 
     //Save image to the cloud(currently using cloudinary) as we can't use heroku for storage
-    userFolder = 'images/' + global.id + '/'//The folder for all the user's images
+    userFolder = 'images/' + req.user.id + '/'//The folder for all the user's images
     filePath = image.tempFilePath
     cloudinary.uploader.upload(filePath, { folder: userFolder}, function(err, result){ 
         console.log(err, result) //Result includes a public ID we can use
         uploadedImage = cloudinary.image(result.public_id, { format:"jpg", crop:"fill", phash:true}) //Using cloudinary instead of the local image to make images more uniform
         cloudinary.search //Getting rid of possible duplicate
-            .expression('folder:images/' + global.id)
+            .expression('folder:images/' + req.user.id)
             .execute().then(result=>{
                 result['resources'].forEach(pic => {
                     if(pic['resource_type'] == 'image'){ //Is an image?
@@ -200,7 +190,7 @@ app.post('/root/uploadPicture', urlparser, (req, res) => {
                 })
             })
         uploadedImageUrl = result.secure_url
-        let plantInfo = identifyPlant(uploadedImageUrl)
+        let plantInfo = identifyPlant(uploadedImageUrl, req.user.name)
         if(plantInfo == null){
             console.log("No plant species found")
             res.render('pages/takePicture', {message:'No species found'})
@@ -214,14 +204,9 @@ app.post('/root/uploadPicture', urlparser, (req, res) => {
     })
 })
 
-app.get('/root/myGarden', urlparser, (req, res) => {
-    if(!global.id){
-        //global.id = 'anonymous'
-        res.render('pages/loginRedirect', {message: "Please login to see your garden"})
-        return
-    }
-    console.log(global.id)
-    Image.find({user:global.id}, function(err, images){
+app.get('/root/myGarden', authToken, urlparser, (req, res) => {
+    console.log(req.user.id)
+    Image.find({user:req.user.name}, function(err, images){
     
         if(err){
             console.error("ERROR: ", err);
@@ -229,14 +214,12 @@ app.get('/root/myGarden', urlparser, (req, res) => {
         }else{
             imagesString = ``
             lowAccuracyPrompt = "If this number is low, please try taking the picture in different lighting, adjusting the angle of the picture so the plant is clearly visible, or making sure the plant is detailed and clearly visible."
-            console.log(images)
             images.forEach(image =>{
-                console.log(image.public_id)
                 imageCard = `
                 <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
                     <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                     <div class="card-body">
-                        <a href="/root/posts/${image._id}"><h5 class="card-title">${global.username}'s ${image.plantName}</h1></a>
+                        <a href="/root/posts/${image._id}"><h5 class="card-title">${req.user.name}'s ${image.plantName}</h1></a>
                         <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
                         <p class="card-text">Named by ${image.foundBy}</h2>
                         <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
@@ -254,14 +237,19 @@ app.get('/root/myGarden', urlparser, (req, res) => {
         })
 })
 
-app.get('/root/posts/*', function(req, res){
+app.get('/root/posts/*', authToken, function(req, res){
     postId = req.originalUrl.replace("/root/posts/", "")
-    Image.countDocuments({_id:postId}, function(err,result){
+    Image.countDocuments({_id:postId}, async function(err,result){
         if(err){
             console.error(err)
         }else{
             if(result>0){ //If image exists?
-                Image.findById(postId, function(err, image){
+                Image.findById(postId, async function(err, image){
+                    likeButton = ``
+                    likeResult = await isImageLiked(image, req.user.name)
+                    if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?post=${postId}" title="Liked"><button class="btn btn-danger">${pluralize(image.likes.length, "like")}</button></a>`
+                    else if(likeResult==="user") likeButton = `<button class="btn btn-success disabled">${pluralize(image.likes.length, "like")}</button>`
+                    else likeButton = `<a href="/root/like/${image._id}?post=${postId}"><button class="btn btn-secondary">${pluralize(image.likes.length, "like")}</button></a>`
                     imageCard = `
                     <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
                         <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
@@ -269,11 +257,12 @@ app.get('/root/posts/*', function(req, res){
                             <h5 class="card-title">Also known as ${image.commonName}</h2>
                             <p class="card-text">Named by ${image.foundBy}</h2>
                             <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
+                            ${likeButton}
                         </div>
                     </div>
                     `
 
-                    User.findById(image.user, function(err, user){
+                    User.findOne({username:image.user}, function(err, user){
                         if(err){
                             console.error(err)
                             return
@@ -301,6 +290,78 @@ app.get('/root/posts/*', function(req, res){
         }
     })
 })
+
+app.get('/root/user/*', authToken, async function(req, res){
+    username = req.originalUrl.replace("/root/user/", "")
+    images = await Image.find({user:username})
+    lowAccuracyPrompt = "If this number is low, please try taking the picture in different lighting, adjusting the angle of the picture so the plant is clearly visible, or making sure the plant is detailed and clearly visible."
+    imagesString = ``
+    images.forEach(async function(image){
+        likeButton = ``
+        likeResult = await isImageLiked(image, req.user.name)
+        if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger">${pluralize(image.likes.length, "like")}</button></a>`
+        else if(likeResult==="user") likeButton = `<button class="btn btn-success disabled">${pluralize(image.likes.length, "like")}</button>`
+        else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-secondary">${pluralize(image.likes.length, "like")}</button></a>`
+        imageCard = `
+            <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
+                <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
+                <div class="card-body">
+                    <a href="/root/posts/${image._id}"><h5 class="card-title">${image.plantName}</h1></a>
+                    <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
+                    <p class="card-text">Named by ${image.foundBy}</h2>
+                    <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
+                    ${likeButton}
+                </div>
+            </div>
+            `
+        imagesString += imageCard
+    })
+    user = await User.findOne({username:username})
+
+    linkMeta = `
+    <meta property="og:title" content="GardenX" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://gardenx.herokuapp.com" />
+    <meta property="og:description" content="Find ${user.username}'s garden and others on GardenX." />
+    <meta name="theme-color" content="#FF0000">
+    `
+
+    if(user.imagePublic){
+        res.render('pages/public/user', {username:username,images:imagesString, linkPreview:linkMeta})
+    }else{
+        res.render('pages/public/404')
+    }
+})
+function prevURL(req){
+    if(req.query.post){ return `/root/posts/${req.query.post}`}
+    else if(req.query.user){ return `/root/user/${req.query.user}`}
+}
+
+app.get('/root/like/*', authToken, async function(req,res){
+    likedImgId = req.originalUrl.replace('/root/like/', "")
+    likedImgId = likedImgId.split('?')[0]
+    likedImage = await Image.findById(likedImgId)
+    isLiked = await isImageLiked(likedImage, req.user.name)
+    if(isLiked==true){
+        //Already liked, remove like
+        likedImage.likes.pull(req.user.name)
+        likedImage.save()
+    }
+    else if(isLiked==="user"){return res.redirect(await prevURL(req))} //Person liking image = author, decline
+    else{
+        //Not yet liked, add one
+        likedImage.likes.push(req.user.name)
+        likedImage.save()
+    }
+    res.redirect(await prevURL(req))
+})
+
+
+
+//Keep every other route above this
+app.get('*', function(req, res) {
+    res.redirect('/root');
+});
 
 app.listen(process.env.PORT || 3000, () => {
     console.log('Now listening on 3000')
