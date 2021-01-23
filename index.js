@@ -29,12 +29,6 @@ app.use(fileUpload({useTempFiles:true})) //Integrates file Upload library
 app.set('view engine', 'ejs')
 mongoose.connect(process.env.MONGO_URL, {useNewUrlParser:true,useUnifiedTopology:true, useFindAndModify:false,useCreateIndex:true}); //Connect to MongoDB Atlas
 
-const pluralize = (num, word) =>{
-    if(num === 1){return `${num.toString()} ${word}`}
-    else if(num === 0){return `No ${word}s`}
-    else{return `${num.toString()} ${word}s`}
-}
-
 async function isImageLiked(image, username){
     likes = image.likes
     if(image.user === username){ return "user"}
@@ -44,7 +38,7 @@ async function isImageLiked(image, username){
 
 function authToken(req, res, next){
     const token = req.signedCookies.jwt
-    if(token === undefined||token==null){ return res.render('pages/index.ejs')}
+    if(token === undefined||token==null){ return res.redirect('/root')}
 
     jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, (err, user)=>{
         if(err){return res.render('pages/login.ejs', {message:"Please log in."})}
@@ -131,7 +125,7 @@ app.post('/login', urlparser, (req, res) => { //Login function
                 return;
             }else{
                 if(person == null){ //Person not found
-                    res.render('pages/loginRedirect', {message:"Incorrect email"})
+                    res.render('pages/login', {message:"Incorrect email"})
                     return
                 }
                 bcrypt.compare(req.body.password, person.password, function(err, result){
@@ -228,7 +222,7 @@ app.get('/root/myGarden', authToken, urlparser, async function(req, res){
                 <span tabindex="0" data-toggle="tooltip" data-placement="bottom" title="${lowAccuracyPrompt}">
                     <p class='text-muted'>${image.accuracy}% accurate.</p>
                 </span>
-                <button class="btn btn-success disabled">${pluralize(image.likes.length, "like")}</button>
+                <button class="btn btn-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>
             </div>
         </div>
         `
@@ -248,9 +242,9 @@ app.get('/root/posts/*', authToken, function(req, res){
                 Image.findById(postId, async function(err, image){
                     likeButton = ``
                     likeResult = await isImageLiked(image, req.user.name)
-                    if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?post=${postId}" title="Liked"><button class="btn btn-danger">${pluralize(image.likes.length, "like")}</button></a>`
-                    else if(likeResult==="user") likeButton = `<button class="btn btn-success disabled">${pluralize(image.likes.length, "like")}</button>`
-                    else likeButton = `<a href="/root/like/${image._id}?post=${postId}"><button class="btn btn-secondary">${pluralize(image.likes.length, "like")}</button></a>`
+                    if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+                    else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
+                    else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
                     imageCard = `
                     <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
                         <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
@@ -302,9 +296,9 @@ app.get('/root/user/*', authToken, async function(req, res){
     images.forEach(async function(image){
         likeButton = ``
         likeResult = await isImageLiked(image, req.user.name)
-        if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger">${pluralize(image.likes.length, "like")}</button></a>`
-        else if(likeResult==="user") likeButton = `<button class="btn btn-success disabled">${pluralize(image.likes.length, "like")}</button>`
-        else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-secondary">${pluralize(image.likes.length, "like")}</button></a>`
+        if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+        else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
+        else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
         imageCard = `
             <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
                 <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
