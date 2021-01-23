@@ -75,7 +75,7 @@ function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't hav
             plantData = mostLikelySpecies['species']
             scientificName = plantData['scientificNameWithoutAuthor']
             author = plantData['scientificNameAuthorship']
-            if(author=="L."){ author = "Carl Linnaeus"}
+            author.replace("L.", "Carl Linnaeus")
             genus = plantData['genus']['scientificNameWithoutAuthor'] //Genus and family also have author data, but we don't necessarily want that here.
             family = plantData['family']['scientificNameWithoutAuthor']
             commonNames = plantData['commonNames']
@@ -211,37 +211,37 @@ app.post('/root/uploadPicture', authToken, urlparser, (req, res) => {
     })
 })
 
-app.get('/root/myGarden', authToken, urlparser, (req, res) => {
+app.get('/root/myGarden', authToken, urlparser, async function(req, res){
     console.log(req.user.id)
-    Image.find({user:req.user.name}, function(err, images){
-    
-        if(err){
-            console.error("ERROR: ", err);
-            return
-        }else{
-            imagesString = ``
-            lowAccuracyPrompt = "If this number is low, please try taking the picture in different lighting, adjusting the angle of the picture so the plant is clearly visible, or making sure the plant is detailed and clearly visible."
-            images.forEach(image =>{
-                imageCard = `
-                <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
-                    <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
-                    <div class="card-body">
-                        <a href="/root/posts/${image._id}"><h5 class="card-title">${req.user.name}'s ${image.plantName}</h1></a>
-                        <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
-                        <p class="card-text">Named by ${image.foundBy}</h2>
-                        <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
-                        <span tabindex="0" data-toggle="tooltip" data-placement="bottom" title="${lowAccuracyPrompt}"
-                            <p class='text-muted'>${image.accuracy}% accurate.</p>
-                        </span>
-                    </div>
-                </div>
-                `
-                imagesString += imageCard
-            })
-            res.render('pages/myGarden', {images:imagesString})
-            
-        } 
-        })
+    images = await Image.find({user:req.user.name})
+    imagesString = ``
+    lowAccuracyPrompt = "If this number is low, please try taking the picture in different lighting, adjusting the angle of the picture so the plant is clearly visible, or making sure the plant is detailed and clearly visible."
+    images.forEach(async function(image){
+        likeButton = ``
+        likeResult = await isImageLiked(image, req.user.name)
+        if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?post=${postId}" title="Liked"><button class="btn btn-danger">${pluralize(image.likes.length, "like")}</button></a>`
+        else if(likeResult==="user") likeButton = `<button class="btn btn-success disabled">${pluralize(image.likes.length, "like")}</button>`
+        else likeButton = `<a href="/root/like/${image._id}?post=${postId}"><button class="btn btn-secondary">${pluralize(image.likes.length, "like")}</button></a>`
+
+        imageCard = `<div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
+            <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
+            <div class="card-body">
+                <a href="/root/posts/${image._id}"><h5 class="card-title">${req.user.name}'s ${image.plantName}</h1></a>
+                <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
+                <p class="card-text">Named by ${image.foundBy}</h2>
+                <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
+                ${likeButton}
+                <span tabindex="0" data-toggle="tooltip" data-placement="bottom" title="${lowAccuracyPrompt}">
+                    <p class='text-muted'>${image.accuracy}% accurate.</p>
+                </span>
+            </div>
+        </div>
+        `
+
+        imagesString += imageCard
+    })
+    console.log(imagesString)
+    res.render('pages/myGarden', {images:imagesString})
 })
 
 app.get('/root/posts/*', authToken, function(req, res){
@@ -266,6 +266,9 @@ app.get('/root/posts/*', authToken, function(req, res){
                             <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
                             ${likeButton}
                         </div>
+                        <span tabindex="0">
+                            <p class='text-muted'>${image.accuracy}% accurate.</p>
+                        </span>
                     </div>
                     `
 
@@ -301,7 +304,6 @@ app.get('/root/posts/*', authToken, function(req, res){
 app.get('/root/user/*', authToken, async function(req, res){
     username = req.originalUrl.replace("/root/user/", "")
     images = await Image.find({user:username})
-    lowAccuracyPrompt = "If this number is low, please try taking the picture in different lighting, adjusting the angle of the picture so the plant is clearly visible, or making sure the plant is detailed and clearly visible."
     imagesString = ``
     images.forEach(async function(image){
         likeButton = ``
@@ -319,6 +321,9 @@ app.get('/root/user/*', authToken, async function(req, res){
                     <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
                     ${likeButton}
                 </div>
+                <span>
+                    <p class='text-muted'>${image.accuracy}% accurate.</p>
+                </span>
             </div>
             `
         imagesString += imageCard
