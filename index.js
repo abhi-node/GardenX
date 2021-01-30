@@ -377,20 +377,20 @@ app.get('/root/search', authToken, async function(req, res){
     if(!req.query.search){return res.redirect('/root')}
     search = new RegExp(req.query.search, 'i')
     results = await Image.find({$text:{$search:search}})
+    resultsUsers = await Image.find({user:search})
     users = await User.find({username:search})
-    console.log(results,users)
-    if(results == null && users == null){
-        console.log('a')
+    results.push.apply(results, resultsUsers)
+    if(results.length == 0 && users.length == 0 && resultsUsers.length == 0){
         return res.render('pages/search')}
     else{
         if(users!=null){
             cardStr += `
             <h3>Users</h3>
-            <div class="card-deck" style="width:70%;padding-left:5%;padding-top:5%">`
+            <div class="card-deck mx-auto" style="padding-left:10%;padding-right:10%;padding-top:5%">`
             for(const user of users){
                 stats = await getUserPlantsLikes(user)
                 userCard = `
-                <div class="card" style="width: 1%;">
+                <div class="card mx-auto" style="margin-left: 1rem; margin-right: 1500rem;">
                     <div class="card-body">
                         <h5 class="card-title">${user.username}</h5>
                         <p class="card-text">${stats[0]} plants</p>
@@ -406,17 +406,17 @@ app.get('/root/search', authToken, async function(req, res){
         if(results != null){
             cardStr += `
             <h3>Plants</h3>
-            <div class="card-deck" style="padding-left:5%;padding-top:5%">`
+            <div class="card-deck" style="padding-left:10%;padding-right:10%;padding-top:5%">`
             for(const image of results){
                 poster = await User.findOne({username:image.user})
-                if(!poster.imagePublic){continue}
+                if(poster != null && !poster.imagePublic){continue}
                 likeButton = ``
                 likeResult = await isImageLiked(image, req.user.name)
                 if(likeResult===true) likeButton = `<a href="/root/like/${image._id}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
                 else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
                 else likeButton = `<a href="/root/like/${image._id}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
                 imageStr = `
-                <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
+                <div class="card mx-auto" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
                     <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                     <div class="card-body">
                         <a href="/root/posts/${image._id}"><h5 class="card-title">${image.user}'s ${image.plantName}</h1></a>
