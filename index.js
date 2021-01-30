@@ -38,13 +38,26 @@ async function isImageLiked(image, username){
 
 function authToken(req, res, next){
     const token = req.signedCookies.jwt
-    if(token === undefined||token==null){ return res.redirect('/root')}
+    if(token === undefined||token==null){ return res.redirect('/root/login')}
 
     jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, (err, user)=>{
         if(err){return res.render('pages/login.ejs', {message:"Please log in."})}
         req.user = user
         next()
     })
+}
+
+async function getUserPlantsLikes(user){
+    userLikes = 0
+    plants = await Image.find({user:user.username})
+    plants.forEach(function(plant){
+        userLikes += plant.likes.length - 0
+    })
+    numPlants = plants.length
+    if(numPlants==0 || numPlants == null) numPlants = "No"
+    if(userLikes==0) userLikes = "No"
+    else userLikes = userLikes.toString()+" total"
+    return [numPlants, userLikes]
 }
 
 function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't have any image recognition. This has 50 free requests per day.
@@ -335,7 +348,10 @@ app.get('/root/user/*', authToken, async function(req, res){
 function prevURL(req){
     if(req.query.post){ return `/root/posts/${req.query.post}`}
     else if(req.query.user){ return `/root/user/${req.query.user}`}
+    else{return 'back'}
 }
+
+
 
 app.get('/root/like/*', authToken, async function(req,res){
     likedImgId = req.originalUrl.replace('/root/like/', "")
@@ -356,7 +372,71 @@ app.get('/root/like/*', authToken, async function(req,res){
     res.redirect(await prevURL(req))
 })
 
-
+app.get('/root/search', authToken, async function(req, res){
+    cardStr = ``
+    if(!req.query.search){return res.redirect('/root')}
+    search = new RegExp(req.query.search, 'i')
+    results = await Image.find({$text:{$search:search}})
+    users = await User.find({username:search})
+    console.log(results,users)
+    if(results == null && users == null){
+        console.log('a')
+        return res.render('pages/search')}
+    else{
+        if(users!=null){
+            cardStr += `
+            <h3>Users</h3>
+            <div class="card-deck" style="width:70%;padding-left:5%;padding-top:5%">`
+            for(const user of users){
+                stats = await getUserPlantsLikes(user)
+                userCard = `
+                <div class="card" style="width: 1%;">
+                    <div class="card-body">
+                        <h5 class="card-title">${user.username}</h5>
+                        <p class="card-text">${stats[0]} plants</p>
+                        <p class="card-text">${stats[1]} likes</p>
+                        <a href="/root/user/${user.username}" class="card-link">View Profile</a>
+                    </div>
+                </div>
+                `
+                cardStr += userCard
+            }
+            cardStr +='</div><br/>'
+        }
+        if(results != null){
+            cardStr += `
+            <h3>Plants</h3>
+            <div class="card-deck" style="padding-left:5%;padding-top:5%">`
+            for(const image of results){
+                poster = await User.findOne({username:image.user})
+                if(!poster.imagePublic){continue}
+                likeButton = ``
+                likeResult = await isImageLiked(image, req.user.name)
+                if(likeResult===true) likeButton = `<a href="/root/like/${image._id}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+                else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
+                else likeButton = `<a href="/root/like/${image._id}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+                imageStr = `
+                <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
+                    <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
+                    <div class="card-body">
+                        <a href="/root/posts/${image._id}"><h5 class="card-title">${image.user}'s ${image.plantName}</h1></a>
+                        <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
+                        <p class="card-text">Named by ${image.foundBy}</h2>
+                        <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
+                        ${likeButton}
+                    </div>
+                    <span>
+                        <p class='text-muted'>${image.accuracy}% accurate.</p>
+                    </span>
+                </div>
+                `
+                cardStr += imageStr
+            }
+            cardStr += `</div>`
+        }
+    }
+    res.render("pages/search",{search:req.query.search,results:cardStr})   
+})
 
 //Keep every other route above this
 app.get('*', function(req, res) {

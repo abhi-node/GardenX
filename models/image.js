@@ -48,6 +48,8 @@ const ImageSchema = new Schema({
     
 })
 
+ImageSchema.index({user:"text",plantName:"text",commonName:"text",genus:"text",family:"text"})
+
 const Image = mongoose.model('image', ImageSchema, 'image')
 
 module.exports = Image
