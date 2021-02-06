@@ -80,9 +80,9 @@
                         <%if(friends.length == 0){%><h2>No friends</h2>
                         <%}else{%>
                             <h2>Your Friends</h2>
-                            <div class="card-deck d-flex flex-wrap" style="margin-right:10%;">
+                            <div class="row row-cols-3 row-cols-md-8 g-4" style="padding-left:2rem;padding-top: 1rem;">
                             <%locals.friends.forEach(function(friend){%>
-                                <div class="card mx-auto" style="margin-right: 1.5rem; text-align:center">
+                                <div class="col-md-4"><div class="card mx-auto" style="margin-left: 1.5rem; text-align:center">
                                     <div class="card-body">
                                         <h5 class="card-title" style="margin-bottom:7%;"><%=friend.username %></h5>
                                         <p class="card-text"><%=friend.stats[0]%> plants, <%= friend.stats[1] %> likes</p>
@@ -91,7 +91,7 @@
                                             <a class="btn btn-danger" style="display: inline-block; margin-left:2%;margin-top:10%;font-size:75%;" href="/root/friend/<%=friend.username%>">Unfriend</a>
                                         </div>
                                     </div>
-                                </div>
+                                </div></div>
                             <%})%>
                             </div>
                         <%}%>
@@ -102,16 +102,16 @@
                         <%if(requests.length==0){%><h2>No incoming requests</h2>
                         <%}else{%>
                             <h2>Incoming Friend Requests</h2>
-                            <div class="card-deck" style="margin-left:10%;margin-right:10%;">
+                            <div class="row row-cols-3 row-cols-md-8 g-4" style="padding-left:2rem;margin-top: 2rem;">
                             <%locals.requests.forEach(function(request){%>
-                                <div class="card" style="width: 18rem;">
+                                <div class="col-md-6"><div class="card" style="width: 18rem;">
                                     <div class="card-body">
                                     <h5 class="card-title">Incoming Request</h5>
                                     <p class="card-text"><%= request.user%> is requesting to be friends with you.</p>
                                     <a href="/root/accept/<%= request.user%>" class="btn btn-success">Accept</a>
                                     <a href="/root/deny/<%= request.user%>" class="btn btn-danger">Deny</a>
                                     </div>
-                                </div>
+                                </div></div>
                             <%})%>
                             </div>
                         <%}%>
@@ -123,15 +123,15 @@
                         <%if(outReqs.length==0){%><h2>No outgoing requests</h2>
                         <%}else{%>
                             <h2>Outgoing Friend Requests</h2>
-                            <div class="card-deck" style="margin-left:10%;margin-right:10%;">
+                            <div class="row row-cols-3 row-cols-md-8 g-4" style="padding-left:2rem;margin-top: 2rem;">
                             <%locals.outReqs.forEach(function(request){%>
-                                <div class="card" style="width: 18rem;">
+                                <div class="col"><div class="card" style="width: 18rem; margin-left:1rem;">
                                     <div class="card-body">
                                     <h5 class="card-title">Request to <%= request.username%></h5>
                                     <p class="card-text"><%=request.stats[0]%> plants, <%= request.stats[1] %> likes</p>
                                     <a href="/root/friend/<%= request.username%>" class="btn btn-outline-danger">Cancel Request</a>
                                     </div>
-                                </div>
+                                </div></div>
                             <%})%>
                             </div>
                         <%}%>
