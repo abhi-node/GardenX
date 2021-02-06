@@ -15,7 +15,9 @@ const cookieParser = require('cookie-parser')
 
 const User = require('./models/user.js')
 const Image = require('./models/image.js')
+const Notif = require('./models/notification.js')
 
+const {formatDistance, parseISO} = require('date-fns')
 
 var cloudinary = require('cloudinary').v2
 
@@ -34,6 +36,25 @@ async function isImageLiked(image, username){
     if(image.user === username){ return "user"}
     else if(likes.includes(username)){ return true}
     else{return false}
+}
+
+async function checkNotifs(req,res,next){
+    notifs = await Notif.find({receivers:req.user.name})
+    if(notifs == []){return next()}
+    messages = []
+    notifs.forEach(async function(notif){
+        type = ""
+        if(notif.type=="friend"){type = "Friend Request"}
+        else if(notif.type=="unfriend"){type = "Unfriended"}
+        else if(notif.type=="post"){type = "New Post"}
+        date = formatDistance(notif.sent, new Date())
+        messages.push({"title":type,"date":date,"msg":notif.msg,"img":notif.image})
+        //We've saved notif, delete the mongodb
+        await Notif.deleteOne(notif)
+    })
+
+    res.locals.notifs = messages
+    next()
 }
 
 function authToken(req, res, next){
@@ -116,7 +137,7 @@ app.get('/root/logout', (req, res)=>{
     res.redirect('/root')
 })
 
-app.get('/root', authToken, (req, res) => { //Main page
+app.get('/root', authToken, checkNotifs, (req, res) => { //Main page
     res.render('pages/onLogin', {name:req.user.name})
 })
 
@@ -176,11 +197,11 @@ app.post('/root/register', urlparser, async (req, res) => {
     }
 )
 
-app.get('/root/uploadPicture', authToken, urlparser, (req, res) => {
+app.get('/root/uploadPicture', authToken, checkNotifs, urlparser, (req, res) => {
     res.render('pages/takePicture', {message:''})
 })
 
-app.post('/root/uploadPicture', authToken, urlparser, (req, res) => {
+app.post('/root/uploadPicture', authToken, checkNotifs, urlparser, (req, res) => {
     if(!req.files || Object.keys(req.files).length === 0){
         res.render('pages/takePicture', {message:'No picture uploaded', resultImage:''}) //Shouldn't be called due to required HTML input, but it's here in case
         return
@@ -218,7 +239,7 @@ app.post('/root/uploadPicture', authToken, urlparser, (req, res) => {
     })
 })
 
-app.get('/root/myGarden', authToken, urlparser, async function(req, res){
+app.get('/root/myGarden', authToken, checkNotifs, urlparser, async function(req, res){
     console.log(req.user.id)
     images = await Image.find({user:req.user.name})
     imagesString = ``
@@ -245,7 +266,24 @@ app.get('/root/myGarden', authToken, urlparser, async function(req, res){
     res.render('pages/myGarden', {images:imagesString})
 })
 
-app.get('/root/posts/*', authToken, function(req, res){
+app.get('/root/friends', authToken, checkNotifs, async function(req,res){
+    reqs = []
+    incUsers = await User.find({requests:req.user.name})
+    incUsers.forEach(function(user){
+        reqs.push({"user":user.username})
+    })
+
+    friends = []
+    cUser = await User.findOne({username:req.user.name})
+    for(const user of cUser.friends){
+        friend = await User.findOne({username:user})
+        stats = await getUserPlantsLikes(friend)
+        friends.push({"username":user,"stats":stats})
+    }
+    res.render('pages/friends', {requests:reqs,friends:friends})
+})
+
+app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
     postId = req.originalUrl.replace("/root/posts/", "")
     Image.countDocuments({_id:postId}, async function(err,result){
         if(err){
@@ -302,7 +340,7 @@ app.get('/root/posts/*', authToken, function(req, res){
     })
 })
 
-app.get('/root/user/*', authToken, async function(req, res){
+app.get('/root/user/*', authToken, checkNotifs, async function(req, res){
     username = req.originalUrl.replace("/root/user/", "")
     images = await Image.find({user:username})
     imagesString = ``
@@ -330,6 +368,8 @@ app.get('/root/user/*', authToken, async function(req, res){
         imagesString += imageCard
     })
     user = await User.findOne({username:username})
+    currentUser = await User.findOne({username:req.user.name})
+    if(!user){return res.render('pages/public/404')}
 
     linkMeta = `
     <meta property="og:title" content="GardenX" />
@@ -338,9 +378,15 @@ app.get('/root/user/*', authToken, async function(req, res){
     <meta property="og:description" content="Find ${user.username}'s garden and others on GardenX." />
     <meta name="theme-color" content="#FF0000">
     `
+    friendButton = ``
+    if(user.friends.includes(req.user.name)){
+        friendButton = `<a href="/root/friend/${user.username}"><button class="btn btn-danger">Unfriend</button></a>`
+    }else if(currentUser.requests.includes(username)){ friendButton = `<a href="/root/friend/${user.username}"><button class="btn btn-outline-danger">Cancel Request</button></a>`
+    }else if(user.requests.includes(req.user.name)){ friendButton = `<a href="/root/accept/${user.username}"><button class="btn btn-success">Accept</button></a><a href="/root/deny/${user.username}"><button class="btn btn-danger">Deny</button></a>`}
+    else{ friendButton = `<a href="/root/friend/${user.username}"><button class="btn btn-success">Friend</button></a>` }
 
     if(user.imagePublic){
-        res.render('pages/public/user', {username:username,images:imagesString, linkPreview:linkMeta})
+        res.render('pages/public/user', {username:username,images:imagesString, linkPreview:linkMeta,friendButton:friendButton})
     }else{
         res.render('pages/public/404')
     }
@@ -371,8 +417,7 @@ app.get('/root/like/*', authToken, async function(req,res){
     }
     res.redirect(await prevURL(req))
 })
-
-app.get('/root/search', authToken, async function(req, res){
+app.get('/root/search', authToken, checkNotifs, async function(req, res){
     cardStr = ``
     if(!req.query.search){return res.redirect('/root')}
     search = new RegExp(req.query.search, 'i')
@@ -438,11 +483,68 @@ app.get('/root/search', authToken, async function(req, res){
     res.render("pages/search",{search:req.query.search,results:cardStr})   
 })
 
+app.get('/root/friend/*', authToken, async function(req,res){
+    userTo = req.originalUrl.replace('/root/friend/', '')
+    if(userTo==req.user.name){return res.redirect(prevURL(req))}
+    cUser = await User.findOne({username:req.user.name})
+    friendMessage = ``
+
+    if(cUser.friends.includes(userTo)){ //User is already a friend, unfriend
+        friendMessage = `<p>${req.user.name} has unfriended you. Friend them <a href="root/user/${req.user.name}">here</a></p>`
+        await Notif.create({type:'friend',sender:req.user.name,receivers:[userTo],msg:friendMessage})
+        await User.findOneAndUpdate({username:userTo}, {$pull:{friends:req.user.name}})
+        cUser.friends.pull(userTo)
+        cUser.save()
+        return res.redirect(prevURL(req))} 
+    else if(cUser.requests.includes(userTo)){ //Already requested the user, cancel request
+        cUser.requests.pull(userTo)
+        cUser.save()
+    }else{ //Create request
+        friendMessage = `<p>${req.user.name} has sent you a friend request. Accept or deny in the <a href="root/friends">Friends</a> menu.</p>`
+        await Notif.create({type:'friend',sender:req.user.name,receivers:[userTo],msg:friendMessage})
+        cUser.requests.push(userTo)
+        cUser.save()
+    }
+    res.redirect(prevURL(req))
+
+})
+
+app.get('/root/accept/*', authToken, async function(req,res){
+    userTo = req.originalUrl.replace('/root/accept/', '')
+    otherUser = await User.findOne({username:userTo})
+    if(otherUser.requests.includes(req.user.name)){
+        otherUser.requests.pull(req.user.name)
+        otherUser.friends.push(req.user.name)
+        otherUser.save()
+
+        await User.findOneAndUpdate({username:req.user.name}, {$push:{friends:userTo}})
+    }
+    return res.redirect(prevURL(req))
+})
+
+app.get('/root/deny/*', authToken, async function(req,res){
+    userTo = req.originalUrl.replace('/root/deny/', '')
+    otherUser = await User.findOne({username:userTo})
+    if(otherUser.requests.includes(req.user.name)){
+        otherUser.requests.pull(req.user.name)
+        otherUser.save()
+    }
+    return res.redirect(prevURL(req))
+})
+
 //Keep every other route above this
 app.get('*', function(req, res) {
     res.redirect('/root');
 });
 
+//node . --update ONLY RUN IF NEEDS TO CHANGE SOME VALUES AND UPDATE "update" BELOW
+if(process.argv.length > 2 && process.argv[2] == '--update'){
+    update = {'friends': [],'requests':[]}
+    User.updateMany({}, {"$set": update}, function(err,res){
+        if(err){console.error(err)}
+        else{console.log("Updated Successfully")}
+    })
+}
 app.listen(process.env.PORT || 3000, () => {
     console.log('Now listening on 3000')
 })

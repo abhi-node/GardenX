@@ -25,7 +25,9 @@ const UserSchema = new Schema({
     imagePublic: {
         type: Boolean,
         default: true
-    }
+    },
+    friends: {type: [String],default: []},
+    requests: {type: [String],default: []}
 
 
     
