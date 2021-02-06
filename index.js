@@ -95,7 +95,7 @@ async function getUserPlantsLikes(user){
     return [numPlants, userLikes]
 }
 
-function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't have any image recognition. This has 50 free requests per day.
+async function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't have any image recognition. This has 50 free requests per day.
     apiLink = 'https://my-api.plantnet.org/v2/identify/all'
     //console.log(url)
     
@@ -106,7 +106,7 @@ function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't hav
             'organs':'leaf'
         }
         })
-        .then(function (response) {
+        .then(async function (response) {
             plantSpecies = response.data.results;
             statusCode = response.data.statusCode;
             if(statusCode != undefined)
@@ -123,7 +123,7 @@ function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't hav
             //console.log(mostLikelySpecies['score'])
             commonNamesJoined = commonNames.join(', ') //commonNames is an array, so we want to convert into a string
             plantArgs = {message:'Your plant has been processed!', resultImage: uploadedImage, plantName: scientificName, commonName:commonNamesJoined, author:author, genus:genus, family:family, accuracy:accuracy} //We render in the original function
-            Image.create({plantName:scientificName,
+            img = await Image.create({plantName:scientificName,
                         commonName: commonNamesJoined,
                         foundBy:author,
                         genus: genus,
@@ -131,14 +131,9 @@ function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't hav
                         accuracy: accuracy,
                         user: id,
                         url:url})
-                .then(function(response){
-                    console.log("Image Created")
-                })
-                .catch(function(err){
-                    console.error(err)
-                })
+            plantArgs.doc = img
             return plantArgs
-
+                
         })
         .catch(function (error) {
         console.log(error);
@@ -234,11 +229,10 @@ app.post('/root/uploadPicture', authToken, checkNotifs, urlparser, (req, res) =>
             res.render('pages/takePicture', {message:'No species found'})
             return
         }
-
         plantInfo.then(async function(info){
-            cImage = await Image.findOne({url:uploadedImageUrl})
+            plantDoc = info.doc
             cUser = await User.findOne({username:req.user.name})
-            await Notif.create({type:"post",sender:req.user.name, receivers:cUser.friends,msg:`<p>${req.user.name} posted a new ${cImage.plantName}. Find it <a href="/root/post/${cImage._id}">here</a>.</p>`,image:uploadedImageUrl})
+            await Notif.create({type:"post",sender:req.user.name, receivers:cUser.friends,msg:`<p>${req.user.name} posted a new ${plantDoc.plantName}. Find it <a href="/root/posts/${plantDoc._id}">here</a>.</p>`,image:uploadedImageUrl})
             res.render('pages/plantResult', info)
         })
 
