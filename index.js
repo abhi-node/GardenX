@@ -91,7 +91,7 @@ async function getUserPlantsLikes(user){
     numPlants = plants.length
     if(numPlants==0 || numPlants == null) numPlants = "No"
     if(userLikes==0) userLikes = "No"
-    else userLikes = userLikes.toString()+" total"
+    else userLikes = userLikes.toString()
     return [numPlants, userLikes]
 }
 
@@ -308,9 +308,9 @@ app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
                     likeButton = ``
                     likeResult = await isImageLiked(image, req.user.name)
                     username = req.user.name
-                    if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+                    if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?post=${image._id}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
                     else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
-                    else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+                    else likeButton = `<a href="/root/like/${image._id}?post=${image._id}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
                     imageCard = `
                     <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
                         <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
@@ -318,11 +318,10 @@ app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
                             <h5 class="card-title">Also known as ${image.commonName}</h2>
                             <p class="card-text">Named by ${image.foundBy}</h2>
                             <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
-                            ${likeButton}
+                            <div style="width:100%;text-align:center;">
+                                ${likeButton} <p class='text-muted' style="margin-left:5%;display:inline-block;"><i class="bi bi-eye"></i> ${pluralize(image.views.length,'view')}</p>
+                            </div>
                         </div>
-                        <span tabindex="0" title="${image.accuracy}% accurate">
-                            <p class='text-muted'><i class="bi bi-eye"></i> ${image.views.length}   </p>
-                        </span>
                     </div>
                     `
                     if(!image.views.includes(req.user.name)){
@@ -369,21 +368,25 @@ app.get('/root/user/*', authToken, checkNotifs, async function(req, res){
         else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
         else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
         imageCard = `
-            <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
+            <div class="col-md-2"><div class="card" style="max-width: 20rem;">
                 <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                 <div class="card-body">
                     <a href="/root/posts/${image._id}"><h5 class="card-title">${image.plantName}</h1></a>
                     <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
                     <p class="card-text">Named by ${image.foundBy}</h2>
                     <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
-                    ${likeButton}
+                    <div style="width:100%;text-align:center; margin-bottom:1rem;">
+                        ${likeButton} <p class='text-muted' style="margin-left:5%;display:inline-block;"><i class="bi bi-eye"></i> ${pluralize(image.views.length,'view')}</p>
+                    </div>
+                    <p class='text-muted' style="text-align:center;margin-bottom:.25rem;">${image.accuracy}% accurate.</p>
                 </div>
-                <span>
-                    <p class='text-muted'>${image.accuracy}% accurate.</p>
-                </span>
-            </div>
+            </div></div>
             `
         imagesString += imageCard
+        if(!image.views.includes(req.user.name)){
+            image.views.push(req.user.name)
+            image.save()
+        }
     })
     user = await User.findOne({username:username})
     currentUser = await User.findOne({username:req.user.name})
@@ -444,7 +447,7 @@ app.get('/root/search', authToken, checkNotifs, async function(req, res){
         if(users!=null && users.length>0){
             cardStr += `
             <h3>Users</h3>
-            <div class="card-deck mx-auto" style="padding-left:10%;padding-right:10%;padding-top:5%">`
+            <div class="card-deck mx-auto" style="padding-left:10%;padding-right:10%;padding-top:2rem;">`
             for(const user of users){
                 if(user.username === req.user.name){continue}
                 stats = await getUserPlantsLikes(user)
@@ -464,8 +467,8 @@ app.get('/root/search', authToken, checkNotifs, async function(req, res){
         }
         if(results != null && results.length >0){
             cardStr += `
-            <h3>Plants</h3>
-            <div class="card-deck" style="padding-left:10%;padding-right:10%;padding-top:5%">`
+            <h3 style="margin-bottom:2rem;">Plants</h3>
+            <div class="row row-cols-1 row-cols-md-4 d-flex justify-content-center" style="width:100%;padding-left:2rem;text-align:auto;" data-masonry='{"percentPosition": true, "itemSelector":".col-md-2"}'>`
             for(const image of results){
                 poster = await User.findOne({username:image.user})
                 if(poster != null && !poster.imagePublic){continue}
@@ -475,7 +478,7 @@ app.get('/root/search', authToken, checkNotifs, async function(req, res){
                 else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
                 else likeButton = `<a href="/root/like/${image._id}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
                 imageStr = `
-                <div class="card mx-auto" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
+                <div class="col-md-2"><div class="card mx-auto" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
                     <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                     <div class="card-body">
                         <a href="/root/posts/${image._id}"><h5 class="card-title">${image.user}'s ${image.plantName}</h1></a>
@@ -484,7 +487,7 @@ app.get('/root/search', authToken, checkNotifs, async function(req, res){
                             ${likeButton} <p class='text-muted' style="margin-left:5%;display:inline-block;"><i class="bi bi-eye"></i> ${image.views.length}</p>
                         </div>
                     </div>
-                </div>
+                </div></div>
                 `
                 cardStr += imageStr
             }

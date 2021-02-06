@@ -48,3 +48,7 @@ body {
     margin-top:2rem;
     width:100%;
 }
+
+.row>col{
+   font-size:xx-large
+}

@@ -48,7 +48,7 @@
             </div>
         </nav>
 
-        <% if(locals.notifs){ %>
+        <% if(locals.notifs && notifs.length>0){ %>
             <div style="position: relative; min-height: 200px; float:right; width:40%;"><div style="position: absolute; top: 0; right: 0;">
             <%locals.notifs.forEach(function(notif){%>
                 <div class="toast" data-bs-autohide="false">
