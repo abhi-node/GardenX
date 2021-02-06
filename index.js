@@ -194,13 +194,14 @@ app.post('/root/register', urlparser, async (req, res) => {
     try{
         newUser = await User.create({username:username,email:email,password:hashedSaltedPass,joinDate:(new Date()).toLocaleDateString()}) //Create a new user, the date is just an example of other attributes that can be added
         
-        const accessToken = jwt.sign({name:username,id:newUser.id}, process.env.SECRET_ACCESS_TOKEN)
-        res.clearCookie('jwt')
-        res.cookie('jwt',accessToken, {maxAge: 3600000,signed:true,httpOnly:true})
+        
     }catch(err){
         if(err.errors.username && err.errors.username.kind == "unique"){ return res.render('pages/registerRedirect.ejs', {message: "Username already taken. Please choose a different one."})}
         if(err.errors.email && err.errors.email.kind == "unique"){ return res.render('pages/registerRedirect.ejs', {message: "Email already taken. Please choose a different one."})}
     }
+    const accessToken = jwt.sign({name:username,id:newUser.id}, process.env.SECRET_ACCESS_TOKEN)
+    await res.clearCookie('jwt')
+    await res.cookie('jwt',accessToken, {maxAge: 3600000,signed:true,httpOnly:true})
     res.redirect('/root')
     }
 )
@@ -226,15 +227,14 @@ app.post('/root/uploadPicture', authToken, checkNotifs, urlparser, (req, res) =>
         uploadedImageUrl = result.secure_url
         let plantInfo = identifyPlant(uploadedImageUrl, req.user.name)
         if(plantInfo == null){
-            res.render('pages/takePicture', {message:'No species found'})
-            return
-        }
+            return res.render('pages/takePicture', {message:'No species found'})
+        }else{
         plantInfo.then(async function(info){
             plantDoc = info.doc
             cUser = await User.findOne({username:req.user.name})
             await Notif.create({type:"post",sender:req.user.name, receivers:cUser.friends,msg:`<p>${req.user.name} posted a new ${plantDoc.plantName}. Find it <a href="/root/posts/${plantDoc._id}">here</a>.</p>`,image:uploadedImageUrl})
             res.render('pages/plantResult', info)
-        })
+        })}
 
     })
 })
@@ -318,9 +318,10 @@ app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
                             <h5 class="card-title">Also known as ${image.commonName}</h2>
                             <p class="card-text">Named by ${image.foundBy}</h2>
                             <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
-                            <div style="width:100%;text-align:center;">
+                            <div style="width:100%;text-align:center; margin-bottom:1rem;">
                                 ${likeButton} <p class='text-muted' style="margin-left:5%;display:inline-block;"><i class="bi bi-eye"></i> ${pluralize(image.views.length,'view')}</p>
                             </div>
+                            <p class='text-muted' style="text-align:center;margin-bottom:.25rem;">${image.accuracy}% accurate.</p>
                         </div>
                     </div>
                     `
