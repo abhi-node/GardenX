@@ -42,7 +42,8 @@ const ImageSchema = new Schema({
     likes:{
         type:[String],
         default: []
-    }
+    },
+    views: [String]
 
 
     

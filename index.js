@@ -20,6 +20,7 @@ const Notif = require('./models/notification.js')
 const {formatDistance, parseISO} = require('date-fns')
 
 var cloudinary = require('cloudinary').v2
+const { request } = require('http')
 
 
 var urlparser = bodyParser.urlencoded({ extended: false })
@@ -30,6 +31,19 @@ app.use(fileUpload({useTempFiles:true})) //Integrates file Upload library
 
 app.set('view engine', 'ejs')
 mongoose.connect(process.env.MONGO_URL, {useNewUrlParser:true,useUnifiedTopology:true, useFindAndModify:false,useCreateIndex:true}); //Connect to MongoDB Atlas
+
+function prevURL(req){
+    if(req.query.post){ return `/root/posts/${req.query.post}`}
+    else if(req.query.user){ return `/root/user/${req.query.user}`}
+    else{return 'back'}
+}
+
+const pluralize = (count, noun) =>{
+    //console.log(count)
+    if(count == 0){return 'No ' + noun +'s'}
+    else if(count == 1){return '1 ' + noun}
+    else{return count.toString() + ' ' + noun+'s'}
+}
 
 async function isImageLiked(image, username){
     likes = image.likes
@@ -83,8 +97,7 @@ async function getUserPlantsLikes(user){
 
 function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't have any image recognition. This has 50 free requests per day.
     apiLink = 'https://my-api.plantnet.org/v2/identify/all'
-    //TODO: Send a GET request to apiLink and parse the result, more at https://my.plantnet.org/usage
-    console.log(url)
+    //console.log(url)
     
     return https.get(apiLink, {
         params:{
@@ -107,7 +120,7 @@ function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn't hav
             genus = plantData['genus']['scientificNameWithoutAuthor'] //Genus and family also have author data, but we don't necessarily want that here.
             family = plantData['family']['scientificNameWithoutAuthor']
             commonNames = plantData['commonNames']
-            console.log(mostLikelySpecies['score'])
+            //console.log(mostLikelySpecies['score'])
             commonNamesJoined = commonNames.join(', ') //commonNames is an array, so we want to convert into a string
             plantArgs = {message:'Your plant has been processed!', resultImage: uploadedImage, plantName: scientificName, commonName:commonNamesJoined, author:author, genus:genus, family:family, accuracy:accuracy} //We render in the original function
             Image.create({plantName:scientificName,
@@ -169,13 +182,13 @@ app.post('/login', urlparser, (req, res) => { //Login function
                         res.cookie('jwt',accessToken, {maxAge: 3600000,signed:true,httpOnly:true})
                         res.redirect('/root') //Logged in, now we show the login page
                     }else{
-                        res.render('pages/loginRedirect', {message:"Incorrect password"})
+                        res.render('pages/login', {message:"Incorrect password"})
                     }
                 })
             }})
     } catch {
         //Account not found, incorrect email/password most likely
-        res.render('pages/onLogin',{message:"Incorrect email/password"})
+        res.render('pages/login',{message:"Incorrect email/password"})
     }
 })
 
@@ -212,27 +225,20 @@ app.post('/root/uploadPicture', authToken, checkNotifs, urlparser, (req, res) =>
     //Save image to the cloud(currently using cloudinary) as we can't use heroku for storage
     userFolder = 'images/' + req.user.id + '/'//The folder for all the user's images
     filePath = image.tempFilePath
-    cloudinary.uploader.upload(filePath, { folder: userFolder}, function(err, result){ 
-        console.log(err, result) //Result includes a public ID we can use
+    cloudinary.uploader.upload(filePath, { folder: userFolder}, async function(err, result){ 
+        //console.log(err, result) //Result includes a public ID we can use
         uploadedImage = cloudinary.image(result.public_id, { format:"jpg", crop:"fill", phash:true}) //Using cloudinary instead of the local image to make images more uniform
-        cloudinary.search //Getting rid of possible duplicate
-            .expression('folder:images/' + req.user.id)
-            .execute().then(result=>{
-                result['resources'].forEach(pic => {
-                    if(pic['resource_type'] == 'image'){ //Is an image?
-                        console.log(pic)
-                    }
-                })
-            })
         uploadedImageUrl = result.secure_url
         let plantInfo = identifyPlant(uploadedImageUrl, req.user.name)
         if(plantInfo == null){
-            console.log("No plant species found")
             res.render('pages/takePicture', {message:'No species found'})
             return
         }
-        plantInfo.then(function(info){
-            console.log(info)
+
+        plantInfo.then(async function(info){
+            cImage = await Image.findOne({url:uploadedImageUrl})
+            cUser = await User.findOne({username:req.user.name})
+            await Notif.create({type:"post",sender:req.user.name, receivers:cUser.friends,msg:`<p>${req.user.name} posted a new ${cImage.plantName}. Find it <a href="/root/post/${cImage._id}">here</a>.</p>`,image:uploadedImageUrl})
             res.render('pages/plantResult', info)
         })
 
@@ -240,10 +246,12 @@ app.post('/root/uploadPicture', authToken, checkNotifs, urlparser, (req, res) =>
 })
 
 app.get('/root/myGarden', authToken, checkNotifs, urlparser, async function(req, res){
-    console.log(req.user.id)
     images = await Image.find({user:req.user.name})
     imagesString = ``
     lowAccuracyPrompt = "If this number is low, please try taking the picture in different lighting, adjusting the angle of the picture so the plant is clearly visible, or making sure the plant is detailed and clearly visible."
+    if(images.length == 0){
+        return res.render('pages/myGarden',{images:`<h4 style="width:100%;">You haven't uploaded any plants yet.</h4><hr/><p>Upload some <a href="/root/uploadPicture"> here</a>.</p>`})
+    }
     images.forEach(function(image){
 
         imageCard = `<div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
@@ -253,10 +261,13 @@ app.get('/root/myGarden', authToken, checkNotifs, urlparser, async function(req,
                 <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
                 <p class="card-text">Named by ${image.foundBy}</h2>
                 <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
-                <span tabindex="0" data-toggle="tooltip" data-placement="bottom" title="${lowAccuracyPrompt}">
+                <span tabindex="0" data-bs-toggle="tooltip" data-placement="bottom" title="${lowAccuracyPrompt}">
                     <p class='text-muted'>${image.accuracy}% accurate.</p>
                 </span>
-                <button class="btn btn-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>
+                <div style="width:100%;text-align:center;">
+                    <button class="btn btn-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>
+                    <button class="btn btn-secondary" data-href="/root/remove/${image._id}" style="display:inline-block; margin-left:5%;" data-bs-toggle="modal" data-bs-target="#deleteModal"><i class="bi bi-trash"></i></button>
+                </div>
             </div>
         </div>
         `
@@ -267,12 +278,12 @@ app.get('/root/myGarden', authToken, checkNotifs, urlparser, async function(req,
 })
 
 app.get('/root/friends', authToken, checkNotifs, async function(req,res){
-    reqs = []
+    incReqs = []
     incUsers = await User.find({requests:req.user.name})
     incUsers.forEach(function(user){
-        reqs.push({"user":user.username})
+        incReqs.push({"user":user.username})
     })
-
+    
     friends = []
     cUser = await User.findOne({username:req.user.name})
     for(const user of cUser.friends){
@@ -280,7 +291,16 @@ app.get('/root/friends', authToken, checkNotifs, async function(req,res){
         stats = await getUserPlantsLikes(friend)
         friends.push({"username":user,"stats":stats})
     }
-    res.render('pages/friends', {requests:reqs,friends:friends})
+
+    outReqs = []
+    for(const user of cUser.requests){
+        outReq = await User.findOne({username:user})
+        if(outReq==null){continue}
+        stats = await getUserPlantsLikes(outReq)
+        outReqs.push({"username":user,"stats":stats})
+    }
+
+    res.render('pages/friends', {requests:incReqs,friends:friends, outReqs:outReqs})
 })
 
 app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
@@ -293,6 +313,7 @@ app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
                 Image.findById(postId, async function(err, image){
                     likeButton = ``
                     likeResult = await isImageLiked(image, req.user.name)
+                    username = req.user.name
                     if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
                     else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
                     else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
@@ -305,12 +326,15 @@ app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
                             <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
                             ${likeButton}
                         </div>
-                        <span tabindex="0">
-                            <p class='text-muted'>${image.accuracy}% accurate.</p>
+                        <span tabindex="0" title="${image.accuracy}% accurate">
+                            <p class='text-muted'><i class="bi bi-eye"></i> ${image.views.length}   </p>
                         </span>
                     </div>
                     `
-
+                    if(!image.views.includes(req.user.name)){
+                        image.views.push(req.user.name)
+                        image.save()
+                    }
                     User.findOne({username:image.user}, function(err, user){
                         if(err){
                             console.error(err)
@@ -383,7 +407,8 @@ app.get('/root/user/*', authToken, checkNotifs, async function(req, res){
         friendButton = `<a href="/root/friend/${user.username}"><button class="btn btn-danger">Unfriend</button></a>`
     }else if(currentUser.requests.includes(username)){ friendButton = `<a href="/root/friend/${user.username}"><button class="btn btn-outline-danger">Cancel Request</button></a>`
     }else if(user.requests.includes(req.user.name)){ friendButton = `<a href="/root/accept/${user.username}"><button class="btn btn-success">Accept</button></a><a href="/root/deny/${user.username}"><button class="btn btn-danger">Deny</button></a>`}
-    else{ friendButton = `<a href="/root/friend/${user.username}"><button class="btn btn-success">Friend</button></a>` }
+    else if(req.user.name==username){friendButton = ``}
+    else{ friendButton = `<a href="/root/friend/${user.username}"><button class="btn btn-success">Add Friend</button></a>` }
 
     if(user.imagePublic){
         res.render('pages/public/user', {username:username,images:imagesString, linkPreview:linkMeta,friendButton:friendButton})
@@ -391,13 +416,6 @@ app.get('/root/user/*', authToken, checkNotifs, async function(req, res){
         res.render('pages/public/404')
     }
 })
-function prevURL(req){
-    if(req.query.post){ return `/root/posts/${req.query.post}`}
-    else if(req.query.user){ return `/root/user/${req.query.user}`}
-    else{return 'back'}
-}
-
-
 
 app.get('/root/like/*', authToken, async function(req,res){
     likedImgId = req.originalUrl.replace('/root/like/', "")
@@ -425,21 +443,23 @@ app.get('/root/search', authToken, checkNotifs, async function(req, res){
     resultsUsers = await Image.find({user:search})
     users = await User.find({username:search})
     results.push.apply(results, resultsUsers)
+    results = results.filter((v,i,a)=>a.findIndex(t=>(t.url === v.url))===i) //Removes duplicates
     if(results.length == 0 && users.length == 0 && resultsUsers.length == 0){
         return res.render('pages/search')}
     else{
-        if(users!=null){
+        if(users!=null && users.length>0){
             cardStr += `
             <h3>Users</h3>
             <div class="card-deck mx-auto" style="padding-left:10%;padding-right:10%;padding-top:5%">`
             for(const user of users){
+                if(user.username === req.user.name){continue}
                 stats = await getUserPlantsLikes(user)
                 userCard = `
-                <div class="card mx-auto" style="margin-left: 1rem; margin-right: 1500rem;">
+                <div class="card mx-auto" style="margin-left: 1rem; margin-right: 1.5rem;width:30%;">
                     <div class="card-body">
                         <h5 class="card-title">${user.username}</h5>
-                        <p class="card-text">${stats[0]} plants</p>
-                        <p class="card-text">${stats[1]} likes</p>
+                        <p class="card-text">${pluralize(stats[0],'plant')}</p>
+                        <p class="card-text">${pluralize(stats[1],'total like')}</p>
                         <a href="/root/user/${user.username}" class="card-link">View Profile</a>
                     </div>
                 </div>
@@ -448,7 +468,7 @@ app.get('/root/search', authToken, checkNotifs, async function(req, res){
             }
             cardStr +='</div><br/>'
         }
-        if(results != null){
+        if(results != null && results.length >0){
             cardStr += `
             <h3>Plants</h3>
             <div class="card-deck" style="padding-left:10%;padding-right:10%;padding-top:5%">`
@@ -465,14 +485,11 @@ app.get('/root/search', authToken, checkNotifs, async function(req, res){
                     <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                     <div class="card-body">
                         <a href="/root/posts/${image._id}"><h5 class="card-title">${image.user}'s ${image.plantName}</h1></a>
-                        <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
-                        <p class="card-text">Named by ${image.foundBy}</h2>
-                        <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
-                        ${likeButton}
+                        <p class="card-text">${image.family} family</p>
+                        <div style="width:100%;text-align:center;">
+                            ${likeButton} <p class='text-muted' style="margin-left:5%;display:inline-block;"><i class="bi bi-eye"></i> ${image.views.length}</p>
+                        </div>
                     </div>
-                    <span>
-                        <p class='text-muted'>${image.accuracy}% accurate.</p>
-                    </span>
                 </div>
                 `
                 cardStr += imageStr
@@ -490,8 +507,8 @@ app.get('/root/friend/*', authToken, async function(req,res){
     friendMessage = ``
 
     if(cUser.friends.includes(userTo)){ //User is already a friend, unfriend
-        friendMessage = `<p>${req.user.name} has unfriended you. Friend them <a href="root/user/${req.user.name}">here</a></p>`
-        await Notif.create({type:'friend',sender:req.user.name,receivers:[userTo],msg:friendMessage})
+        friendMessage = `<p>${req.user.name} has unfriended you. Friend them <a href="/root/user/${req.user.name}">here</a></p>`
+        await Notif.create({type:'unfriend',sender:req.user.name,receivers:[userTo],msg:friendMessage})
         await User.findOneAndUpdate({username:userTo}, {$pull:{friends:req.user.name}})
         cUser.friends.pull(userTo)
         cUser.save()
@@ -500,7 +517,7 @@ app.get('/root/friend/*', authToken, async function(req,res){
         cUser.requests.pull(userTo)
         cUser.save()
     }else{ //Create request
-        friendMessage = `<p>${req.user.name} has sent you a friend request. Accept or deny in the <a href="root/friends">Friends</a> menu.</p>`
+        friendMessage = `<p>${req.user.name} has sent you a friend request. Accept or deny in the <a href="/root/friends">Friends</a> menu.</p>`
         await Notif.create({type:'friend',sender:req.user.name,receivers:[userTo],msg:friendMessage})
         cUser.requests.push(userTo)
         cUser.save()
@@ -532,6 +549,12 @@ app.get('/root/deny/*', authToken, async function(req,res){
     return res.redirect(prevURL(req))
 })
 
+app.get('/root/remove/*', authToken, async function(req, res){
+    plantToRemove = req.originalUrl.replace('/root/remove/','')
+    plant = await Image.findOneAndRemove({_id:plantToRemove,user:req.user.name})
+    res.redirect(prevURL(req))
+})
+
 //Keep every other route above this
 app.get('*', function(req, res) {
     res.redirect('/root');
@@ -539,8 +562,8 @@ app.get('*', function(req, res) {
 
 //node . --update ONLY RUN IF NEEDS TO CHANGE SOME VALUES AND UPDATE "update" BELOW
 if(process.argv.length > 2 && process.argv[2] == '--update'){
-    update = {'friends': [],'requests':[]}
-    User.updateMany({}, {"$set": update}, function(err,res){
+    update = {'views': []}
+    Image.updateMany({}, {"$set": update}, function(err,res){
         if(err){console.error(err)}
         else{console.log("Updated Successfully")}
     })

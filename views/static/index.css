@@ -2,7 +2,49 @@ body {
     background-color: #d5f5d5;
 }
 
-.active{
+.navbar-nav>li>a{
+    font-weight:500;
+}
+
+.navbar-nav>li>.active{
     background-color: goldenrod;
     color:white;
+}
+.navbar-nav>li{
+    padding-left:0;
+}
+
+.user{
+    margin: 2rem 4rem 1.5rem 0;
+    margin-top:1.5rem;
+    margin-left:2rem;
+}
+
+.user *{
+    margin-right:2rem;
+    display:inline-flex;
+    text-decoration:none;
+}
+
+.garden{
+    margin: 2rem 4rem 1.5rem 0;
+    margin-top:1.5rem;
+    margin-left:2rem;  
+}
+
+.garden>h1{
+    margin-bottom:1rem;
+    margin-left:1rem;
+}
+
+.nav-link{
+    margin-bottom:1rem;
+}
+
+.tab-pane{
+    margin-left:2rem;
+}
+.tab-pane>.card-deck{
+    margin-top:2rem;
+    width:100%;
 }
