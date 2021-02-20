@@ -1,14 +1,25 @@
 <html>
     <head>
-        <title>My Garden</title>
+        <title>My Feed</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <script src="https://code.jquery.com/jquery-1.11.0.min.js"></script>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
-        <link rel="stylesheet" type="text/css" href="../static/index.css">
+        <link rel="stylesheet" type="text/css" href="../../static/index.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
         <script>
+            window.onload = function(){
+              if( window.localStorage )
+              {
+                if( !localStorage.getItem('firstLoad') )
+                {
+                  localStorage['firstLoad'] = true
+                  window.location.reload()
+                }  
+                else localStorage.removeItem('firstLoad')
+              }
+            }
             $(document).ready(function() {
                 $(".toast").toast('show');
             });
@@ -17,26 +28,26 @@
     <body>
         <nav class="navbar navbar-expand-lg navbar-light bg-light">
             <div class="container-fluid">
-                <a class="navbar-brand" style="margin-right:3%;" href="/root"><img src="../static/images/logo.png"></a>
+                <a class="navbar-brand" style="margin-right:3%;" href="/root"><img src="../../static/images/logo.png"></a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarResponsive">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarResponsive">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item ps-3">
-                            <a class="nav-link" href="/root/feed">My Feed</a>
+                            <a class="nav-link active" href="/root/feed">My Feed</a>
                         </li>
                         <li class="nav-item ps-3">
                             <a class="nav-link" href="/root/friends">Friends</a>
                         </li>
                         <li class="nav-item dropdown ps-3">
-                            <a class="nav-link dropdown-toggle" href="" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                                 Profile
                             </a>
-                            <div class="dropdown-menu">
-                                <a class="dropdown-item active" href="/root/myGarden">My Garden</a>
-                                <a class="dropdown-item" href="/root/uploadPicture">Upload a Picture</a>
-                            </div>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/root/myGarden">My Garden</a></li>
+                                <li><a class="dropdown-item" href="/root/uploadPicture">Upload a Picture</a></li>
+                            </ul>
                         </li>
                     </ul>
                     <form class="d-flex" style="margin-right:1%;" action="/root/search">
@@ -65,11 +76,53 @@
             <%})%>
             </div></div>
         <%}%>
-
-        <div class="d-flex flex-wrap garden">
-            <h1 style="width:100%;">My Garden</h1>
-            <%- images %>
+        <p>
+            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#mostViewed" >Most Viewed</button>
+            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#mostLiked">Most Liked</button>
+        </p>
+        <div class="row">
+            <div class="col">
+                <div class="collapse multi-collapse" id="mostViewed">
+                    <div class="user">
+                        <h1>Most viewed plants</h1>
+                    </div>
+                    <div class="row row-cols-1 row-cols-md-4" style="padding-left:2rem;">
+                        <%- images %>
+                    </div>
+                </div>
+            <div class="col">
+                <div class="collapse multi-collapse" id="mostLiked">
+                    <div class="user">
+                        <h1>Most liked plants</h1>
+                    </div>
+                    <div class="row row-cols-1 row-cols-md-4" style="padding-left:2rem;">
+                        <%- like %>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <p>
+            <a class="btn btn-primary" data-bs-toggle="collapse" href="#multiCollapseExample1" role="button" aria-expanded="false" aria-controls="multiCollapseExample1">Toggle first element</a>
+            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#multiCollapseExample2" aria-expanded="false" aria-controls="multiCollapseExample2">Toggle second element</button>
+            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target=".multi-collapse" aria-expanded="false" aria-controls="multiCollapseExample1 multiCollapseExample2">Toggle both elements</button>
+          </p>
+          <div class="row">
+            <div class="col">
+              <div class="collapse multi-collapse" id="multiCollapseExample1">
+                <div class="card card-body">
+                  Some placeholder content for the first collapse component of this multi-collapse example. This panel is hidden by default but revealed when the user activates the relevant trigger.
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="collapse multi-collapse" id="multiCollapseExample2">
+                <div class="card card-body">
+                  Some placeholder content for the second collapse component of this multi-collapse example. This panel is hidden by default but revealed when the user activates the relevant trigger.
+                </div>
+              </div>
+            </div>
+          </div>
 
         <!-- Image on click modal -->
         <div class="modal fade" id="imageModal" tabindex="-1" role="dialog">
@@ -89,34 +142,13 @@
             </div>
         </div>
 
-        <!-- Deletion Modal -->
-        <div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5>Plant Deletion</h5>
-                    </div>
-                    <div class="modal-body">
-                        <p>Are you sure you want to delete this plant? This action is irreversible.</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-default" data-bs-dismiss="modal">No</button>
-                        <a class="btn btn-danger" id="delete">Yes</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Some script for the above modal -->
         <script type="text/javascript">
             $(".imageOnClick").on("click", function(){
                 $("#imagePreview").attr('src', $(this).find('img').attr('src'));
                 $("#imageModal").modal("show");
             })
-
-            $('#deleteModal').on('show.bs.modal', function(e) {
-                $(this).find('#delete').attr('href', $(e.relatedTarget).data('href'));
-            });
         </script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
     </body>
 </html>

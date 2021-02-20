@@ -327,6 +327,7 @@ app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
                     `
                     if(!image.views.includes(req.user.name)){
                         image.views.push(req.user.name)
+                        image.viewNum += 1
                         image.save()
                     }
                     User.findOne({username:image.user}, function(err, user){
@@ -553,6 +554,62 @@ app.get('/root/remove/*', authToken, async function(req, res){
     res.redirect(prevURL(req))
 })
 
+app.get('/root/feed', authToken, async function(req,res){
+    imgs = await Image.find({}).sort({"viewNum":1})
+    likes = await Image.find({}).sort({"likeNum":1})
+    imagesString = ``
+    likeStr = ``
+    for(const image of imgs){
+        username = req.user.name
+        likeButton = ``
+        likeResult = await isImageLiked(image, req.user.name)
+        if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+        else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
+        else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+        imageCard = `
+            <div class="col-md-2"><div class="card" style="max-width: 20rem;">
+                <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
+                <div class="card-body">
+                    <a href="/root/posts/${image._id}"><h5 class="card-title">${image.plantName}</h1></a>
+                    <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
+                    <p class="card-text">Named by ${image.foundBy}</h2>
+                    <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
+                    <div style="width:100%;text-align:center; margin-bottom:1rem;">
+                        ${likeButton} <p class='text-muted' style="margin-left:5%;display:inline-block;"><i class="bi bi-eye"></i> ${pluralize(image.views.length,'view')}</p>
+                    </div>
+                    <p class='text-muted' style="text-align:center;margin-bottom:.25rem;">${image.accuracy}% accurate.</p>
+                </div>
+            </div></div>
+            `
+        imagesString += imageCard
+    }
+    for(const image of likes){
+        username = req.user.name
+        likeButton = ``
+        likeResult = await isImageLiked(image, req.user.name)
+        if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+        else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
+        else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+        imageCard = `
+            <div class="col-md-2"><div class="card" style="max-width: 20rem;">
+                <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
+                <div class="card-body">
+                    <a href="/root/posts/${image._id}"><h5 class="card-title">${image.plantName}</h1></a>
+                    <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
+                    <p class="card-text">Named by ${image.foundBy}</h2>
+                    <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
+                    <div style="width:100%;text-align:center; margin-bottom:1rem;">
+                        ${likeButton} <p class='text-muted' style="margin-left:5%;display:inline-block;"><i class="bi bi-eye"></i> ${pluralize(image.views.length,'view')}</p>
+                    </div>
+                    <p class='text-muted' style="text-align:center;margin-bottom:.25rem;">${image.accuracy}% accurate.</p>
+                </div>
+            </div></div>
+            `
+        likeStr += imageCard
+    }
+    res.render('pages/feed',{images:imagesString,like:likeStr})
+})
+
 //Keep every other route above this
 app.get('*', function(req, res) {
     res.redirect('/root');
@@ -560,7 +617,7 @@ app.get('*', function(req, res) {
 
 //node . --update ONLY RUN IF NEEDS TO CHANGE SOME VALUES AND UPDATE "update" BELOW
 if(process.argv.length > 2 && process.argv[2] == '--update'){
-    update = {'views': []}
+    update = {'likeNum': 0,'likes':[]}
     Image.updateMany({}, {"$set": update}, function(err,res){
         if(err){console.error(err)}
         else{console.log("Updated Successfully")}

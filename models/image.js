@@ -43,7 +43,9 @@ const ImageSchema = new Schema({
         type:[String],
         default: []
     },
-    views: [String]
+    views: [String],
+    viewNum: Number,
+    likeNum:Number
 
 
     
