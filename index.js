@@ -20,7 +20,6 @@ const Notif = require('./models/notification.js')
 const {formatDistance, parseISO} = require('date-fns')
 
 var cloudinary = require('cloudinary').v2
-const { request } = require('http')
 
 
 var urlparser = bodyParser.urlencoded({ extended: false })
@@ -158,7 +157,6 @@ app.get('/root/register', urlparser, (req, res)=>{
 
 app.post('/login', urlparser, (req, res) => { //Login function
     var email = req.body.email
-    var password = req.body.password
     try{
         User.findOne({email: email}, function(err, person){ 
         //User.findOneAndRemove({email: email, password: password}, function(err, person){
@@ -608,6 +606,36 @@ app.get('/root/feed', authToken, async function(req,res){
         likeStr += imageCard
     }
     res.render('pages/feed',{images:imagesString,like:likeStr})
+})
+
+app.get('/root/profile', authToken, async function(req,res){
+    user = await User.findOne({username:req.user.name})
+    stats = await getUserPlantsLikes(user)
+    statMsg = {name:req.user.name,likes:pluralize(stats[0],'plant'), views:pluralize(stats[1],'total like'),publicCheck:!user.imagePublic}
+    res.render('pages/profile.ejs', statMsg)
+})
+
+app.post('/root/updateProfile', urlparser, authToken, async function(req,res){
+    user = await User.findOne({username:req.user.name})
+    stats = await getUserPlantsLikes(user)
+    messages = {name:req.user.name,likes:pluralize(stats[0],'plant'), views:pluralize(stats[1],'total like'),publicCheck:!user.imagePublic,passMessage:''}
+    if(await bcrypt.compare(req.body.password, user.password)){
+        if(req.body.newPassword != ''){
+            if(req.body.password == req.body.newPassword) messages.passMessage = "Please reset your password to a different one."
+            else{user.password = await bcrypt.hash(req.body.newPassword, 15)
+                messages.passMessage = "Password reset successfully."}
+        }else if(req.body.imagePublic == 'on'){ 
+            user.publicCheck = false
+            messages.passMessage += "\nUser privacy updated"
+        }else {
+            user.publicCheck = true
+            messages.passMessage += "\nUser privacy updated"
+        }   
+    }else{
+        messages.passMessage = "Please correctly enter your current password."
+    }
+    user.save()
+    res.render('pages/profile.ejs', messages)
 })
 
 //Keep every other route above this
