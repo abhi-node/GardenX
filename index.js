@@ -471,7 +471,7 @@ app.get('/root/search', authToken, checkNotifs, async function(req, res){
             <div class="row row-cols-1 row-cols-md-4 d-flex justify-content-center" style="width:100%;padding-left:2rem;text-align:auto;" data-masonry='{"percentPosition": true, "itemSelector":".col-md-2"}'>`
             for(const image of results){
                 poster = await User.findOne({username:image.user})
-                if(poster != null && !poster.imagePublic){continue}
+                if(poster != null || !poster.imagePublic){continue}
                 likeButton = ``
                 likeResult = await isImageLiked(image, req.user.name)
                 if(likeResult===true) likeButton = `<a href="/root/like/${image._id}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
