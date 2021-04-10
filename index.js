@@ -139,6 +139,12 @@ async function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn
         });
 }
 
+async function isInvasive(name){
+    list = ['Aloe vera', 'Rubus idaeus'] //test, replace this with API call
+    if(list.includes(name)) return true
+    return false
+}
+
 app.get('/root/logout', (req, res)=>{
     res.clearCookie('jwt')
     res.redirect('/root')
@@ -313,7 +319,7 @@ app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
                     <div class="card" style="max-width: 20rem; margin-left: 1rem; margin-right: 1.5rem;">
                         <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                         <div class="card-body">
-                            <h5 class="card-title">Also known as ${image.commonName}</h2>
+                        <h5 class="card-title" style="text-decoration:none">${image.commonName}    ${((await isInvasive(image.plantName) == true) ? `<i class="bi bi-exclamation-square" data-bs-toggle="tooltip" data-bs-placement="right" title="This plant is invasive. Try not to spread this plant in your community."></i>` : ``)}</h5>
                             <p class="card-text">Named by ${image.foundBy}</h2>
                             <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
                             <div style="width:100%;text-align:center; margin-bottom:1rem;">
@@ -325,7 +331,7 @@ app.get('/root/posts/*', authToken, checkNotifs, function(req, res){
                     `
                     if(!image.views.includes(req.user.name)){
                         image.views.push(req.user.name)
-                        image.viewNum += 1
+                        image.viewNum = image.views.length
                         image.save()
                     }
                     User.findOne({username:image.user}, function(err, user){
@@ -371,7 +377,7 @@ app.get('/root/user/*', authToken, checkNotifs, async function(req, res){
             <div class="col-md-2"><div class="card" style="max-width: 20rem;">
                 <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                 <div class="card-body">
-                    <a href="/root/posts/${image._id}"><h5 class="card-title">${image.plantName}</h1></a>
+                    <a href="/root/posts/${image._id}"><h5 class="card-title" style="text-decoration:none">${image.plantName}    ${((await isInvasive(image.plantName) == true) ? `<i class="bi bi-exclamation-square" data-bs-toggle="tooltip" data-bs-placement="right" title="This plant is invasive. Try not to spread this plant in your community."></i>` : ``)}</h5></a>
                     <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
                     <p class="card-text">Named by ${image.foundBy}</h2>
                     <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
@@ -385,6 +391,7 @@ app.get('/root/user/*', authToken, checkNotifs, async function(req, res){
         imagesString += imageCard
         if(!image.views.includes(req.user.name)){
             image.views.push(req.user.name)
+            image.viewNum = image.views.length
             image.save()
         }
     })
@@ -407,11 +414,7 @@ app.get('/root/user/*', authToken, checkNotifs, async function(req, res){
     else if(req.user.name==username){friendButton = ``}
     else{ friendButton = `<a href="/root/friend/${user.username}"><button class="btn btn-success">Add Friend</button></a>` }
 
-    if(user.imagePublic){
-        res.render('pages/public/user', {username:username,images:imagesString, linkPreview:linkMeta,friendButton:friendButton})
-    }else{
-        res.render('pages/public/404')
-    }
+    res.render('pages/public/user', {username:username,images:imagesString, linkPreview:linkMeta,friendButton:friendButton})
 })
 
 app.get('/root/like/*', authToken, async function(req,res){
@@ -422,12 +425,14 @@ app.get('/root/like/*', authToken, async function(req,res){
     if(isLiked==true){
         //Already liked, remove like
         likedImage.likes.pull(req.user.name)
+        likedImage.likeNum = likedImage.likes.length
         likedImage.save()
     }
     else if(isLiked==="user"){return res.redirect(await prevURL(req))} //Person liking image = author, decline
     else{
         //Not yet liked, add one
         likedImage.likes.push(req.user.name)
+        likedImage.likeNum = likedImage.likes.length
         likedImage.save()
     }
     res.redirect(await prevURL(req))
@@ -553,12 +558,14 @@ app.get('/root/remove/*', authToken, async function(req, res){
 })
 
 app.get('/root/feed', authToken, async function(req,res){
-    imgs = await Image.find({}).sort({"viewNum":1})
-    likes = await Image.find({}).sort({"likeNum":1})
+    viewed = await Image.find({}).sort({"viewNum":-1}).limit(5)
+    liked = await Image.find({}).sort({"likeNum":-1}).limit(5)
     imagesString = ``
     likeStr = ``
-    for(const image of imgs){
-        username = req.user.name
+    for(const image of viewed){
+        poster = await User.findOne({username:image.user})
+        if(!poster.imagePublic) continue
+        username = poster.username
         likeButton = ``
         likeResult = await isImageLiked(image, req.user.name)
         if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
@@ -568,7 +575,7 @@ app.get('/root/feed', authToken, async function(req,res){
             <div class="col-md-2"><div class="card" style="max-width: 20rem;">
                 <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                 <div class="card-body">
-                    <a href="/root/posts/${image._id}"><h5 class="card-title">${image.plantName}</h1></a>
+                    <a href="/root/posts/${image._id}"><h5 class="card-title" style="text-decoration:none">${image.plantName}    ${((await isInvasive(image.plantName) == true) ? `<i class="bi bi-exclamation-square" data-bs-toggle="tooltip" data-bs-placement="right" title="This plant is invasive. Try not to spread this plant in your community."></i>` : ``)}</h5></a>
                     <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
                     <p class="card-text">Named by ${image.foundBy}</h2>
                     <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
@@ -581,8 +588,11 @@ app.get('/root/feed', authToken, async function(req,res){
             `
         imagesString += imageCard
     }
-    for(const image of likes){
-        username = req.user.name
+    for(const image of liked){
+        poster = await User.findOne({username:image.user})
+        if(!poster.imagePublic) continue
+        if(image.likes == undefined) console.log('IMAGE: ' + image)
+        username = poster.username
         likeButton = ``
         likeResult = await isImageLiked(image, req.user.name)
         if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
@@ -592,7 +602,7 @@ app.get('/root/feed', authToken, async function(req,res){
             <div class="col-md-2"><div class="card" style="max-width: 20rem;">
                 <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                 <div class="card-body">
-                    <a href="/root/posts/${image._id}"><h5 class="card-title">${image.plantName}</h1></a>
+                    <a href="/root/posts/${image._id}"><h5 class="card-title" style="text-decoration:none">${image.plantName}    ${((await isInvasive(image.plantName) == true) ? `<i class="bi bi-exclamation-square" data-bs-toggle="tooltip" data-bs-placement="right" title="This plant is invasive. Try not to spread this plant in your community."></i>` : ``)}</h5></a>
                     <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
                     <p class="card-text">Named by ${image.foundBy}</h2>
                     <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>
@@ -645,12 +655,12 @@ app.get('*', function(req, res) {
 
 //node . --update ONLY RUN IF NEEDS TO CHANGE SOME VALUES AND UPDATE "update" BELOW
 if(process.argv.length > 2 && process.argv[2] == '--update'){
-    update = {'likeNum': 0,'likes':[]}
+    update = {'likeNum': 0,'likes':[],'viewNum':0,'views':[]}
     Image.updateMany({}, {"$set": update}, function(err,res){
         if(err){console.error(err)}
         else{console.log("Updated Successfully")}
     })
 }
-app.listen(process.env.PORT || 3000, () => {
-    console.log('Now listening on 3000')
+app.listen(process.env.PORT || 3030, () => {
+    console.log('Now listening at http://localhost:3030')
 })

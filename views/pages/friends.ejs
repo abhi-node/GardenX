@@ -34,6 +34,7 @@
                                 Profile
                             </a>
                             <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/root/profile">Edit My Profile</a></li><li><a class="dropdown-item" href="/root/profile">Edit My Profile</a></li>
                                 <li><a class="dropdown-item" href="/root/myGarden">My Garden</a></li>
                                 <li><a class="dropdown-item" href="/root/uploadPicture">Upload a Picture</a></li>
                             </ul>
@@ -74,7 +75,7 @@
                 <a class="nav-link" id="v-pills-out-tab" data-bs-toggle="pill" href="#v-pills-out" role="tab">Outgoing Requests <%if(locals.requests && locals.outReqs.length >0){%><span class="badge bg-light text-dark"><%=outReqs.length%></span><%}%></a>
             </div>
 
-            <div class="tab-content">
+            <div class="tab-content" style="width:100%;">
                 <div class="tab-pane show active" id="v-pills-friends" role="tabpanel">
                     <% if(locals.friends){ %>
                         <%if(friends.length == 0){%><h2>No friends</h2>
