@@ -18,7 +18,7 @@
     <body>
         <nav class="navbar navbar-expand-lg navbar-light bg-light">
             <div class="container-fluid">
-                <a class="navbar-brand" style="margin-right:3%;" href="/root"><img src="../static/images/logo.png"></a>
+                <a class="navbar-brand" style="margin-right:3%;" href="/root"><img src="../../static/images/logo.png"></a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarResponsive">
                     <span class="navbar-toggler-icon"></span>
                 </button>
@@ -31,13 +31,15 @@
                             <a class="nav-link" href="/root/friends">Friends</a>
                         </li>
                         <li class="nav-item dropdown ps-3">
-                            <a class="nav-link dropdown-toggle" href="" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                                 Profile
                             </a>
-                            <div class="dropdown-menu">
-                                <a class="dropdown-item" href="/root/myGarden">My Garden</a>
-                                <a class="dropdown-item active" href="/root/uploadPicture">Upload a Picture</a>
-                            </div>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/root/profile">Edit My Profile</a></li><li><a class="dropdown-item" href="/root/profile">Edit My Profile</a></li>
+                                <li><a class="dropdown-item" href="/root/myGarden">My Garden</a></li>
+                                <li><a class="dropdown-item active" href="/root/uploadPicture">Upload a Picture</a></li>
+                                <li><a class="dropdown-item" href="https://gardenxbugreports.boards.net/">Issues/Forums</a></li>
+                            </ul>
                         </li>
                     </ul>
                     <form class="d-flex" style="margin-right:1%;" action="/root/search">
