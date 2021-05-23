@@ -8,6 +8,8 @@ const path = require('path')
 const app = express()
 const bodyParser = require('body-parser')
 const mongoose = require('mongoose')
+const fs = require('fs')
+const url = require("url");
 
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt')
@@ -20,7 +22,9 @@ const Notif = require('./models/notification.js')
 const {formatDistance, parseISO} = require('date-fns')
 
 var cloudinary = require('cloudinary').v2
+const { assert } = require('console')
 
+const invasive = fs.readFileSync('invasive_species.txt','utf8').toLowerCase()
 
 var urlparser = bodyParser.urlencoded({ extended: false })
 app.use(cookieParser(process.env.COOKIE_SIGNED_SECRET))
@@ -34,6 +38,7 @@ mongoose.connect(process.env.MONGO_URL, {useNewUrlParser:true,useUnifiedTopology
 function prevURL(req){
     if(req.query.post){ return `/root/posts/${req.query.post}`}
     else if(req.query.user){ return `/root/user/${req.query.user}`}
+    else if(req.query.feed){return '/root/feed'}
     else{return 'back'}
 }
 
@@ -72,10 +77,21 @@ async function checkNotifs(req,res,next){
 
 function authToken(req, res, next){
     const token = req.signedCookies.jwt
-    if(token === undefined||token==null){ return res.redirect('/root/login')}
-
+    if(token === undefined||token==null){
+        if(req.originalUrl.includes('/root')){
+            return res.render('pages/public/homepage.ejs')
+        }else{
+            return res.redirect('/root/login')
+        }
+    }
+    
     jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, (err, user)=>{
-        if(err){return res.render('pages/login.ejs', {message:"Please log in."})}
+        if(err){
+            if(req.originalUrl.includes('/root')){
+                return res.render('pages/public/homepage.ejs')
+            }else{
+                return res.render('pages/login.ejs', {message:"Please log in."})}
+            }
         req.user = user
         next()
     })
@@ -121,7 +137,7 @@ async function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn
             commonNames = plantData['commonNames']
             //console.log(mostLikelySpecies['score'])
             commonNamesJoined = commonNames.join(', ') //commonNames is an array, so we want to convert into a string
-            plantArgs = {message:'Your plant has been processed!', resultImage: uploadedImage, plantName: scientificName, commonName:commonNamesJoined, author:author, genus:genus, family:family, accuracy:accuracy} //We render in the original function
+            plantArgs = {message:'Your plant has been processed!', plantName: scientificName, commonName:commonNamesJoined, author:author, genus:genus, family:family, accuracy:accuracy} //We render in the original function
             img = await Image.create({plantName:scientificName,
                         commonName: commonNamesJoined,
                         foundBy:author,
@@ -140,9 +156,22 @@ async function identifyPlant(url, id){ //Using Pl@ntnet for the API, trefle didn
 }
 
 async function isInvasive(name){
-    list = ['Aloe vera', 'Rubus idaeus'] //test, replace this with API call
-    if(list.includes(name)) return true
+    if(invasive.includes(name.toLowerCase())) return true
     return false
+}
+
+async function get_pHash_dist(user, phash){
+    isDuplicate = false
+    cloudinary.api.resources({type:"upload", prefix: "images/"+user.toString(), phash:true}, function(err, res){
+        console.log(res)
+        for(image in res.resources){
+            console.log(image.phash)
+            let distance = Math.abs(dist(image.phash, phash))
+            console.log(distance)
+            if(assert(distance < 5)) isDuplicate = true
+        }
+    })
+    return isDuplicate
 }
 
 app.get('/root/logout', (req, res)=>{
@@ -225,18 +254,29 @@ app.post('/root/uploadPicture', authToken, checkNotifs, urlparser, (req, res) =>
     //Save image to the cloud(currently using cloudinary) as we can't use heroku for storage
     userFolder = 'images/' + req.user.id + '/'//The folder for all the user's images
     filePath = image.tempFilePath
-    cloudinary.uploader.upload(filePath, { folder: userFolder}, async function(err, result){ 
+    cloudinary.uploader.upload(filePath, {folder: userFolder, phash:true}, async function(err, result){ 
         //console.log(err, result) //Result includes a public ID we can use
-        uploadedImage = cloudinary.image(result.public_id, { format:"jpg", crop:"fill", phash:true}) //Using cloudinary instead of the local image to make images more uniform
-        uploadedImageUrl = result.secure_url
+        let uploadedImage = cloudinary.image(result.public_id, {width:500, height:500, format:"jpg", crop:"fill"}) //Using cloudinary instead of the local image to make images more uniform
+        console.log(result.phash)
+        let uploadedImageUrl = result.secure_url
         let plantInfo = identifyPlant(uploadedImageUrl, req.user.name)
         if(plantInfo == null){
             return res.render('pages/takePicture', {message:'No species found'})
         }else{
         plantInfo.then(async function(info){
-            plantDoc = info.doc
-            cUser = await User.findOne({username:req.user.name})
-            await Notif.create({type:"post",sender:req.user.name, receivers:cUser.friends,msg:`<p>${req.user.name} posted a new ${plantDoc.plantName}. Find it <a href="/root/posts/${plantDoc._id}">here</a>.</p>`,image:uploadedImageUrl})
+            let invasive = await isInvasive(info.plantName)
+            info.resultImage = uploadedImage
+            if(invasive || info.accuracy < 20){
+                await Image.deleteOne(info.doc)
+                info.message = "There was an issue processing your plant."
+                if(invasive){info.invasive = true}
+                else{info.inaccurate = true}
+                //cloudinary.uploader.destroy(result.public_id, function(result){console.log('deleted from CDN')})
+            }else{
+                plantDoc = info.doc
+                cUser = await User.findOne({username:req.user.name})
+                await Notif.create({type:"post",sender:req.user.name, receivers:cUser.friends,msg:`<p>${req.user.name} posted a new ${plantDoc.plantName}. Find it <a href="/root/posts/${plantDoc._id}">here</a>.</p>`,image:uploadedImageUrl})
+            }
             res.render('pages/plantResult', info)
         })}
 
@@ -368,8 +408,8 @@ app.get('/root/user/*', authToken, checkNotifs, async function(req, res){
     images = await Image.find({user:username})
     imagesString = ``
     images.forEach(async function(image){
-        likeButton = ``
-        likeResult = await isImageLiked(image, req.user.name)
+        let likeButton = ``
+        let likeResult = await isImageLiked(image, req.user.name)
         if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
         else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
         else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
@@ -553,6 +593,14 @@ app.get('/root/deny/*', authToken, async function(req,res){
 
 app.get('/root/remove/*', authToken, async function(req, res){
     plantToRemove = req.originalUrl.replace('/root/remove/','')
+    let plantObj = await Image.findOne({_id:plantToRemove,user:req.user.name})
+    let plantLink = new URL(plantObj.url)
+    let plantUrl = path.posix.basename(plantLink.pathname)
+    console.log(plantUrl)
+    cloudinary.search.expression(plantUrl).execute().then(function(result){
+        console.log(result)
+        cloudinary.uploader.destroy(result.resources[0].public_id, after => console.log('deleted from CDN'))
+    })
     plant = await Image.findOneAndRemove({_id:plantToRemove,user:req.user.name})
     res.redirect(prevURL(req))
 })
@@ -568,14 +616,14 @@ app.get('/root/feed', authToken, async function(req,res){
         username = poster.username
         likeButton = ``
         likeResult = await isImageLiked(image, req.user.name)
-        if(likeResult===true) likeButton = `<a href="/root/like/${image._id}?user=${username}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+        if(likeResult===true) likeButton = `<a href="/root/like/${image._id}" title="Liked"><button class="btn btn-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
         else if(likeResult==="user") likeButton = `<button class="btn btn-outline-success disabled"><i class="bi bi-heart"></i> ${image.likes.length.toString()}</button>`
-        else likeButton = `<a href="/root/like/${image._id}?user=${username}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
+        else likeButton = `<a href="/root/like/${image._id}"><button class="btn btn-outline-danger"><i class="bi bi-heart-fill"></i> ${image.likes.length.toString()}</button></a>`
         imageCard = `
             <div class="col-md-2"><div class="card" style="max-width: 20rem;">
                 <a role="button" class="imageOnClick"><img class="card-img-top" src="${image.url}"></a>
                 <div class="card-body">
-                    <a href="/root/posts/${image._id}"><h5 class="card-title" style="text-decoration:none">${image.plantName}    ${((await isInvasive(image.plantName) == true) ? `<i class="bi bi-exclamation-square" data-bs-toggle="tooltip" data-bs-placement="right" title="This plant is invasive. Try not to spread this plant in your community."></i>` : ``)}</h5></a>
+                    <a href="/root/posts/${image._id}"><h5 class="card-title" style="text-decoration:none">${username}'s ${image.plantName}    ${((await isInvasive(image.plantName) == true) ? `<i class="bi bi-exclamation-square" data-bs-toggle="tooltip" data-bs-placement="right" title="This plant is invasive. Try not to spread this plant in your community."></i>` : ``)}</h5></a>
                     <h6 class="card-subtitle">Also known as ${image.commonName}</h2>
                     <p class="card-text">Named by ${image.foundBy}</h2>
                     <p class="card-text">${image.genus} belongs to the ${image.family} family.</p>

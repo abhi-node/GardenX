@@ -44,6 +44,7 @@
                     <form class="d-flex" style="margin-right:1%;" action="/root/search">
                         <input class="form-control me-2" type="search" name="search" placeholder="Search">
                         <button class="btn btn-outline-secondary" type="submit">Search</button>
+                        <a class="btn btn-outline-danger" style="margin-left:1rem;font-size:smaller;" href="/root/logout">Logout</a>
                     </form>
                 </div>
             </div>
@@ -68,12 +69,18 @@
             </div></div>
         <%}%>
         <h1><%= message %></h1>
-        <%- resultImage %>
+        <div style="max-width:500px;max-height:500px;"><%- resultImage %></div>
         <h1><%= plantName %></h1>
         <h2>Also known as <%= commonName %></h2>
         <h3>Named by <%= author %></h2>
         <p><%= genus %> belongs to the <%= family %> family.</p>
-        <p class='text-muted'><%= accuracy %>% accurate. If this number is low, please try taking the picture in different lighting, adjusting the angle of the picture so the plant is clearly visible, or making sure the plant is detailed and clearly visible.</p>
-        <a href="/root/myGarden">Look at your garden</a>
+        <%if(locals.invasive){%>
+            <h4>NOTE: This plant has been detected as an invasive species and hasn't been added to your garden. Please do not spread this plant in your community</h4>
+        <%}else if(locals.inaccurate){%>
+            <h4>NOTE: We couldn't accurately classify this plant. Please try taking the picture in different lighting, adjusting the angle of the picture so the plant is clearly visible, or making sure the plant is detailed and clearly visible.</h4>
+        <%}else{%>
+            <p class='text-muted'><%= accuracy %>% accurate.</p>
+            <a href="/root/myGarden">Look at your garden</a>
+        <%}%>
     </body>
 </html>
